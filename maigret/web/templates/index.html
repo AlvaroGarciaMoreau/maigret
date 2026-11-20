@@ -1,51 +1,1495 @@
 {% extends "base.html" %}
 
+{% block title %}Maigret — Buscador OSINT y Generador de Comandos{% endblock %}
+
 {% block content %}
 <style>
-    .main-search-section {
-        background: rgba(255, 255, 255, 0.03);
-        padding: 2rem;
-        border-radius: 8px;
-        margin-bottom: 2rem;
+    .page-intro {
+        margin-block-end: 1.5rem;
     }
 
-    .search-button {
-        width: 100%;
-        padding: 1rem;
-        font-size: 1.2rem;
-        margin-top: 2rem;
+    .page-intro h1 {
+        font-size: clamp(1.45rem, 2.5vw, 2rem);
+        font-weight: 700;
+        margin-block-end: 0.35rem;
+    }
+
+    .page-intro p {
+        color: var(--text-muted-custom);
+        margin-block-end: 0;
+        max-inline-size: 72ch;
+    }
+
+    .builder-grid {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr);
+        gap: 1.5rem;
+        align-items: start;
+    }
+
+    @media (min-width: 992px) {
+        .builder-grid {
+            grid-template-columns: minmax(0, 1.32fr) minmax(320px, 0.95fr);
+        }
+
+        .sticky-aside {
+            position: sticky;
+            inset-block-start: 1rem;
+        }
+    }
+
+    .panel-card {
+        background-color: var(--surface-card);
+        border: 1px solid var(--border-subtle);
+        border-radius: 12px;
+        padding: 1.25rem;
+        margin-block-end: 1.25rem;
+        min-inline-size: 0;
+    }
+
+    .panel-card h2 {
+        font-size: 1.15rem;
+        font-weight: 700;
+        margin-block-end: 0.85rem;
+    }
+
+    .section-fieldset {
+        border: 1px solid var(--border-subtle);
+        border-radius: 10px;
+        padding: 1.1rem;
+        margin-block-end: 1.25rem;
+        background-color: var(--surface-card);
+        min-inline-size: 0;
+    }
+
+    .section-fieldset > legend {
+        float: none;
+        width: auto;
+        padding-inline: 0.5rem;
+        margin-block-end: 0.65rem;
+        font-size: 1.05rem;
+        font-weight: 700;
+    }
+
+    .field-group {
+        display: flex;
+        flex-direction: column;
+        align-items: stretch;
+        gap: 0.3rem;
+        margin-block-end: 1rem;
+    }
+
+    .field-group:last-child {
+        margin-block-end: 0;
+    }
+
+    .field-group label.field-label {
+        font-weight: 600;
+        margin-block-end: 0;
+    }
+
+    .field-hint {
+        font-size: 0.86rem;
+        color: var(--text-muted-custom);
+        margin-block-end: 0.15rem;
+    }
+
+    .field-error {
+        font-size: 0.875rem;
+        color: #dc2626;
+        font-weight: 600;
+        margin-block-start: 0.25rem;
+    }
+
+    .section-fieldset input[type="text"],
+    .section-fieldset input[type="number"],
+    .section-fieldset textarea,
+    .section-fieldset select {
+        font: inherit;
+        font-size: max(1rem, 1em);
+        min-block-size: 44px;
+    }
+
+    .section-fieldset textarea:user-invalid,
+    .section-fieldset input:user-invalid {
+        border-color: #dc2626;
+    }
+
+    .targets-counter {
+        font-size: 0.85rem;
+        color: var(--text-muted-custom);
+        min-block-size: 1.25rem;
+    }
+
+    .radio-stack,
+    .check-grid {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.65rem 1.15rem;
+        margin-block-start: 0.25rem;
+    }
+
+    .check-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(195px, 1fr));
+        gap: 0.55rem 0.85rem;
+    }
+
+    .choice-item {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        min-block-size: 36px;
+        padding: 0.25rem 0.45rem;
+        border-radius: 6px;
+        cursor: pointer;
+    }
+
+    .choice-item input[type="checkbox"],
+    .choice-item input[type="radio"] {
+        inline-size: 1.1rem;
+        block-size: 1.1rem;
+        flex: none;
+        cursor: pointer;
+    }
+
+    .chip-row {
+        display: flex;
+        flex-wrap: wrap;
+        flex-wrap: balance;
+        gap: 0.45rem;
+        margin-block-start: 0.45rem;
+    }
+
+    .chip-btn {
+        min-block-size: 32px;
+        min-inline-size: 24px;
+        padding: 0.25rem 0.65rem;
+        border-radius: 999px;
+        border: 1px solid var(--border-subtle);
+        background-color: var(--surface-subtle);
+        color: var(--text-primary);
+        font-size: 0.83rem;
+        font-weight: 500;
+        cursor: pointer;
+    }
+
+    .chip-btn:hover {
+        border-color: var(--accent-color);
+    }
+
+    .chip-btn[aria-pressed="true"] {
+        background-color: #166534;
+        border-color: #22c55e;
+        color: #ffffff;
+    }
+
+    .numeric-subpanel {
+        margin-block-start: 0.75rem;
+        padding: 0.85rem;
+        border-radius: 8px;
+        background-color: var(--surface-subtle);
+        border: 1px solid var(--border-subtle);
+    }
+
+    .command-pre {
+        flex: 1;
+        min-inline-size: 0;
+        margin: 0;
+        padding: 0.85rem 1rem;
+        border-radius: 8px;
+        background-color: #0f172a;
+        color: #f8fafc;
+        border: 1px solid #334155;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+        font-size: 0.9rem;
+        line-height: 1.45;
+        overflow-x: auto;
+        white-space: pre-wrap;
+        word-break: break-word;
+        color-scheme: dark;
+        accent-color: var(--accent-color);
+    }
+
+    .command-summary-list {
+        margin-block: 0.85rem 0;
+        padding-inline-start: 1.2rem;
+        font-size: 0.88rem;
+        color: var(--text-muted-custom);
+    }
+
+    .command-summary-list li + li {
+        margin-block-start: 0.25rem;
+    }
+
+    .example-group-title {
+        font-size: 0.82rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        color: var(--text-muted-custom);
+        margin-block: 0.85rem 0.45rem;
+    }
+
+    .example-list {
+        display: flex;
+        flex-direction: column;
+        gap: 0.45rem;
+    }
+
+    .example-btn {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.15rem;
+        inline-size: 100%;
+        text-align: start;
+        padding: 0.55rem 0.75rem;
+        border-radius: 8px;
+        border: 1px solid var(--border-subtle);
+        background-color: var(--surface-subtle);
+        color: var(--text-primary);
+        cursor: pointer;
+    }
+
+    .example-btn:hover {
+        border-color: var(--accent-color);
+    }
+
+    .example-btn.active-preset {
+        border-color: var(--accent-color);
+        box-shadow: inset 3px 0 0 var(--accent-color);
+    }
+
+    .example-btn code {
+        font-size: 0.82rem;
+        word-break: break-word;
+    }
+
+    .example-desc {
+        font-size: 0.8rem;
+        color: var(--text-muted-custom);
+    }
+
+    .submit-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.75rem;
+        margin-block-start: 1rem;
+    }
+
+    .btn-primary-cta {
+        flex: 1 1 220px;
+        min-block-size: 48px;
+        padding: 0.7rem 1.25rem;
+        border: none;
+        border-radius: 8px;
+        background-color: var(--cta-bg);
+        color: var(--cta-text);
+        font-size: 1.05rem;
+        font-weight: 700;
+        cursor: pointer;
+    }
+
+    .btn-primary-cta:hover {
+        background-color: var(--cta-bg-hover);
+    }
+
+    .btn-secondary-action {
+        min-block-size: 48px;
+        padding: 0.7rem 1rem;
+    }
+
+    .disclosure-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: space-between;
+        inline-size: 100%;
+        min-block-size: 44px;
+        padding: 0.5rem 0.85rem;
+        border-radius: 8px;
+        border: 1px solid var(--border-subtle);
+        background-color: var(--surface-subtle);
+        color: var(--text-primary);
+        font-weight: 600;
+        cursor: pointer;
+    }
+
+    .advanced-panel {
+        margin-block-start: 0.85rem;
+        padding-block-start: 0.75rem;
+        border-block-start: 1px solid var(--border-subtle);
+    }
+
+    .socmint-section {
+        margin-block-start: 1.5rem;
+    }
+
+    .socmint-table-wrap {
+        overflow-x: auto;
+    }
+
+    .status-pill {
+        display: inline-block;
+        padding: 0.15rem 0.5rem;
+        border-radius: 999px;
+        font-size: 0.78rem;
+        font-weight: 600;
+    }
+
+    .status-pill-ok {
+        background-color: #14532d;
+        color: #dcfce7;
+    }
+
+    .status-pill-warn {
+        background-color: #78350f;
+        color: #fef3c7;
     }
 </style>
 
-<div class="form-container">
-    {% if error %}
-    <div class="alert alert-danger">{{ error }}</div>
-    {% endif %}
-
-    <form method="POST" action="{{ url_for('live_start') }}" class="mb-4">
-        <div class="main-search-section">
-            <div class="mb-4">
-                <label for="usernames" class="form-label h5">Usernames to Search</label>
-                <textarea class="form-control" id="usernames" name="usernames" rows="3" required
-                    placeholder="Enter one or more usernames (separated by spaces or commas)..."></textarea>
-            </div>
-
-            <div class="btn-group" role="group" aria-label="Search mode">
-                <input type="radio" class="btn-check" name="mode" id="mode-fast" value="fast" checked>
-                <label class="btn btn-outline-secondary" for="mode-fast">Fast check ({{ web_settings.top_sites }} sites)</label>
-                <input type="radio" class="btn-check" name="mode" id="mode-full" value="full">
-                <label class="btn btn-outline-secondary" for="mode-full">Full check</label>
-            </div>
-        </div>
-
-        <p class="text-muted">
-            Filters, proxies and advanced options now live in
-            <a href="#" data-bs-toggle="modal" data-bs-target="#settingsModal">Settings</a> (&#9881; top right).
-        </p>
-
-        <button type="submit" id="startBtn" class="btn search-button" style="background-color: rgb(249, 207, 0); color: black;">
-            Start Search
-        </button>
-    </form>
+<div class="page-intro">
+    <h1>Maigret — Búsqueda OSINT y Constructor de Comandos</h1>
+    <p>
+        Introduce los alias o identificadores a investigar, elige la carpeta y el formato de salida, ajusta los parámetros SOCMINT y ejecuta la búsqueda directamente o copia el comando CLI exacto.
+    </p>
 </div>
+
+<div class="builder-grid">
+    <div>
+        <search>
+            <form method="POST" action="{{ url_for('live_start') }}" id="maigret-search-form" aria-labelledby="form-heading" novalidate>
+                <h2 id="form-heading" class="visually-hidden">Formulario de búsqueda y parámetros de Maigret</h2>
+                <input type="hidden" name="search_form_submitted" value="1">
+                <input type="hidden" name="formats_configured" value="1">
+
+                <fieldset class="section-fieldset">
+                    <legend>1. Entrada de texto a buscar</legend>
+
+                    <div class="field-group">
+                        <label for="usernames" class="field-label">
+                            Alias, usernames o identificadores <span aria-hidden="true">*</span>
+                        </label>
+                        <p id="usernames-hint" class="field-hint">
+                            Uno o varios términos separados por espacios, comas o saltos de línea (ej.: <code>user1 user2 user3</code>). También puedes usar prefijos <code>tipo:valor</code> como <code>vk_id:12345</code>.
+                        </p>
+                        <textarea class="form-control" id="usernames" name="usernames" rows="3" required
+                            aria-describedby="usernames-hint usernames-error"
+                            autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false"
+                            enterkeyhint="done" placeholder="user1 user2 user3"></textarea>
+                        <div id="usernames-error" class="field-error" hidden>
+                            Introduce al menos un término de búsqueda (username o identificador).
+                        </div>
+                        <div id="targets-counter" class="targets-counter" aria-live="polite"></div>
+                    </div>
+
+                    <div class="field-group">
+                        <span class="field-label">Tipo de término introducido (<code>--id-type</code> / modo <code>--ids</code>)</span>
+                        <div class="radio-stack">
+                            <label class="choice-item" for="id_mode_username">
+                                <input type="radio" id="id_mode_username" name="id_mode" value="username" checked>
+                                <span>Alias / Username (por defecto)</span>
+                            </label>
+                            <label class="choice-item" for="id_mode_numeric">
+                                <input type="radio" id="id_mode_numeric" name="id_mode" value="numeric">
+                                <span>Identificador numérico (<code>--ids</code> / <code>--id-type</code>)</span>
+                            </label>
+                        </div>
+
+                        <div id="numeric-id-panel" class="numeric-subpanel" hidden>
+                            <div class="field-group">
+                                <label for="id_type" class="field-label">Tipo específico de ID (<code>--id-type</code>)</label>
+                                <p id="id-type-hint" class="field-hint">
+                                    Nota: en la CLI de Maigret se usa <code>--id-type &lt;tipo&gt;</code> (o <code>tipo:valor</code> vía <code>--input-file</code>) en lugar de un flag genérico <code>--ids</code>. En la web puedes probar todos los IDs numéricos a la vez.
+                                </p>
+                                <select class="form-select" id="id_type" name="id_type" aria-describedby="id-type-hint">
+                                    <option value="auto_ids">Todos los IDs numéricos disponibles (auto-escaneo)</option>
+                                    <option value="vk_id">vk_id — VK.com (ID numérico)</option>
+                                    <option value="gaia_id">gaia_id — Google GAIA (ID numérico)</option>
+                                    <option value="steam_id">steam_id — Steam (ID numérico)</option>
+                                    <option value="ok_id">ok_id — OK.ru (ID numérico)</option>
+                                    <option value="qq_id">qq_id — QQ / Qzone (número)</option>
+                                    <option value="bilibili_id">bilibili_id — Bilibili (mid numérico)</option>
+                                    <option value="wikimapia_uid">wikimapia_uid — Wikimapia (UID numérico)</option>
+                                    <option value="uidme_uguid">uidme_uguid — uID.me (UGUID numérico)</option>
+                                    <option value="yandex_public_id">yandex_public_id — Yandex (ID público)</option>
+                                    <option value="yelp_userid">yelp_userid — Yelp (User ID)</option>
+                                    <option value="orcid">orcid — ORCID (ID investigador)</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="field-group">
+                        <label class="choice-item" for="permute">
+                            <input type="checkbox" id="permute" name="permute" {{ 'checked' if web_settings.permute }}>
+                            <span>Generar permutaciones entre múltiples usernames (<code>--permute</code>)</span>
+                        </label>
+                    </div>
+                </fieldset>
+
+                <fieldset class="section-fieldset">
+                    <legend>2. Lugar de salida</legend>
+                    <div class="field-group">
+                        <label for="folderoutput" class="field-label">
+                            Carpeta de destino (<code>--folderoutput</code> / <code>-fo</code>)
+                        </label>
+                        <p id="folderoutput-hint" class="field-hint">
+                            Ruta donde Maigret guardará los informes. Si indicas una carpeta distinta a <code>reports</code>, la web exportará allí los archivos además de permitir su descarga directa.
+                        </p>
+                        <input type="text" class="form-control" id="folderoutput" name="folderoutput"
+                            value="{{ default_folderoutput }}" aria-describedby="folderoutput-hint"
+                            autocorrect="off" autocapitalize="none" spellcheck="false" placeholder="reports">
+                        <div class="chip-row" aria-label="Rutas rápidas de salida">
+                            <button type="button" class="chip-btn folder-preset-btn" data-folder="reports">reports (por defecto)</button>
+                            <button type="button" class="chip-btn folder-preset-btn" data-folder="./informes">./informes</button>
+                            <button type="button" class="chip-btn folder-preset-btn" data-folder="./salida_socmint">./salida_socmint</button>
+                        </div>
+                    </div>
+                </fieldset>
+
+                <fieldset class="section-fieldset">
+                    <legend>3. Formato de salida</legend>
+
+                    <div class="chip-row mb-3" aria-label="Combinaciones rápidas de formatos">
+                        <button type="button" class="chip-btn fmt-preset-btn" data-fmt-preset="html">Solo HTML</button>
+                        <button type="button" class="chip-btn fmt-preset-btn" data-fmt-preset="visual">Informes (HTML + PDF + XMind)</button>
+                        <button type="button" class="chip-btn fmt-preset-btn" data-fmt-preset="socmint">SOCMINT (JSON simple + CSV)</button>
+                        <button type="button" class="chip-btn fmt-preset-btn" data-fmt-preset="graphs">Grafos (Graph + Neo4j)</button>
+                        <button type="button" class="chip-btn fmt-preset-btn" data-fmt-preset="all">Todos</button>
+                        <button type="button" class="chip-btn fmt-preset-btn" data-fmt-preset="none">Ninguno</button>
+                    </div>
+
+                    <div class="field-group">
+                        <span class="field-label">Informes visuales y documentos</span>
+                        <div class="check-grid">
+                            <label class="choice-item" for="fmt_html">
+                                <input type="checkbox" id="fmt_html" name="fmt_html" checked>
+                                <span><code>--html</code> Informe HTML</span>
+                            </label>
+                            <label class="choice-item" for="fmt_pdf">
+                                <input type="checkbox" id="fmt_pdf" name="fmt_pdf">
+                                <span><code>--pdf</code> Informe PDF</span>
+                            </label>
+                            <label class="choice-item" for="fmt_xmind">
+                                <input type="checkbox" id="fmt_xmind" name="fmt_xmind">
+                                <span><code>--xmind</code> Mapa XMind 2022+</span>
+                            </label>
+                            <label class="choice-item" for="fmt_md">
+                                <input type="checkbox" id="fmt_md" name="fmt_md">
+                                <span><code>--md</code> Markdown</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="field-group">
+                        <span class="field-label">Exportaciones legibles por máquina y grafos</span>
+                        <div class="check-grid">
+                            <label class="choice-item" for="fmt_csv">
+                                <input type="checkbox" id="fmt_csv" name="fmt_csv">
+                                <span><code>--csv</code> Tabla CSV</span>
+                            </label>
+                            <label class="choice-item" for="fmt_txt">
+                                <input type="checkbox" id="fmt_txt" name="fmt_txt">
+                                <span><code>--txt</code> Lista TXT de URLs</span>
+                            </label>
+                            <label class="choice-item" for="fmt_graph">
+                                <input type="checkbox" id="fmt_graph" name="fmt_graph">
+                                <span><code>--graph</code> Grafo interactivo HTML</span>
+                            </label>
+                            <label class="choice-item" for="fmt_neo4j">
+                                <input type="checkbox" id="fmt_neo4j" name="fmt_neo4j">
+                                <span><code>--neo4j</code> Script Neo4j Cypher</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="field-group">
+                        <span class="field-label">Exportación JSON (<code>--json</code>)</span>
+                        <div class="radio-stack">
+                            <label class="choice-item" for="json_none">
+                                <input type="radio" id="json_none" name="json_format" value="" checked>
+                                <span>Sin JSON</span>
+                            </label>
+                            <label class="choice-item" for="json_ndjson">
+                                <input type="radio" id="json_ndjson" name="json_format" value="ndjson">
+                                <span><code>--json ndjson</code> (una línea por sitio)</span>
+                            </label>
+                            <label class="choice-item" for="json_simple">
+                                <input type="radio" id="json_simple" name="json_format" value="simple">
+                                <span><code>--json simple</code> (limpio para <code>jq</code>)</span>
+                            </label>
+                        </div>
+                    </div>
+                </fieldset>
+
+                <fieldset class="section-fieldset">
+                    <legend>4. Parámetros de consulta SOCMINT, filtros e IA</legend>
+
+                    <div class="field-group">
+                        <span class="field-label">Alcance de plataformas</span>
+                        <div class="radio-stack">
+                            <label class="choice-item" for="mode-fast">
+                                <input type="radio" id="mode-fast" name="mode" value="fast" checked>
+                                <span>Priorizar Top N por tráfico (<code>--top-sites N</code>)</span>
+                            </label>
+                            <label class="choice-item" for="mode-full">
+                                <input type="radio" id="mode-full" name="mode" value="full">
+                                <span>Todos los sitios disponibles (<code>-a</code> / <code>--all-sites</code>)</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="field-group" id="top-sites-wrap">
+                        <label for="top_sites" class="field-label">
+                            Número de sitios prioritarios (<code>--top-sites N</code>)
+                        </label>
+                        <p id="top-sites-hint" class="field-hint">
+                            Prioriza las N plataformas más relevantes por tráfico global (por defecto: 500).
+                        </p>
+                        <input type="number" class="form-control" id="top_sites" name="top_sites"
+                            min="1" max="15000" inputmode="numeric"
+                            value="{{ web_settings.top_sites }}" aria-describedby="top-sites-hint">
+                        <div class="chip-row" aria-label="Valores frecuentes de top-sites">
+                            <button type="button" class="chip-btn top-preset-btn" data-top="100">100</button>
+                            <button type="button" class="chip-btn top-preset-btn" data-top="250">250</button>
+                            <button type="button" class="chip-btn top-preset-btn" data-top="500">500 (defecto)</button>
+                            <button type="button" class="chip-btn top-preset-btn" data-top="1000">1000</button>
+                        </div>
+                    </div>
+
+                    <div class="field-group">
+                        <label for="tags-input" class="field-label">
+                            Categorías o países (<code>--tags</code>)
+                        </label>
+                        <p id="tags-hint" class="field-hint">
+                            Filtra el rastreo por categoría o código de país de 2 letras separados por comas (ej.: <code>coding,social</code>, <code>photo,dating</code>, <code>us</code>).
+                        </p>
+                        <input type="text" class="form-control" id="tags-input" name="tags"
+                            value="{{ web_settings.tags | join(',') }}" aria-describedby="tags-hint"
+                            autocorrect="off" autocapitalize="none" spellcheck="false"
+                            placeholder="coding,social">
+                        <div class="chip-row" id="quick-tags-row" aria-label="Etiquetas rápidas frecuentes">
+                            {% for t in ['coding', 'social', 'photo', 'dating', 'us', 'es', 'tech', 'hacking', 'gaming', 'news', 'crypto', 'forum', 'blog', 'mastodon', 'research'] %}
+                            <button type="button" class="chip-btn tag-toggle-btn" data-tag="{{ t }}" aria-pressed="false">{{ t }}</button>
+                            {% endfor %}
+                            <button type="button" class="chip-btn" id="load-all-tags-btn">Ver todas las etiquetas…</button>
+                        </div>
+                        <div id="extra-tags-container" class="chip-row" hidden></div>
+                    </div>
+
+                    <div class="field-group">
+                        <label for="excluded-tags-input" class="field-label">
+                            Etiquetas excluidas (<code>--exclude-tags</code>)
+                        </label>
+                        <input type="text" class="form-control" id="excluded-tags-input" name="excluded_tags"
+                            value="{{ web_settings.excluded_tags | join(',') }}"
+                            autocorrect="off" autocapitalize="none" spellcheck="false"
+                            placeholder="porn,erotic">
+                    </div>
+
+                    <div class="field-group">
+                        <label for="keywords-input" class="field-label">
+                            Palabras clave en la página (<code>--keywords</code>)
+                        </label>
+                        <p id="keywords-hint" class="field-hint">
+                            Separa palabras con espacios (ej.: <code>python rust</code>). Los sitios donde aparezca alguna se destacan con <code>[++]</code>.
+                        </p>
+                        <input type="text" class="form-control" id="keywords-input" name="keywords"
+                            aria-describedby="keywords-hint"
+                            autocorrect="off" autocapitalize="none" spellcheck="false"
+                            placeholder="python rust">
+                    </div>
+
+                    <div class="field-group">
+                        <label class="choice-item" for="ai-toggle">
+                            <input type="checkbox" id="ai-toggle" name="ai">
+                            <span>
+                                Resumen de investigación asistido por IA (<code>--ai</code>)
+                                {% if ai_configured %}
+                                <span class="status-pill status-pill-ok">OPENAI_API_KEY lista</span>
+                                {% else %}
+                                <span class="status-pill status-pill-warn">Requiere OPENAI_API_KEY</span>
+                                {% endif %}
+                            </span>
+                        </label>
+                        <div id="ai-model-wrap" class="numeric-subpanel" hidden>
+                            <div class="field-group">
+                                <label for="ai_model" class="field-label">Modelo OpenAI (<code>--ai-model</code>)</label>
+                                <input type="text" class="form-control" id="ai_model" name="ai_model" value="gpt-5.4"
+                                    autocorrect="off" autocapitalize="none" spellcheck="false">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="field-group">
+                        <button type="button" class="disclosure-btn" id="toggle-advanced-btn"
+                            aria-expanded="false" aria-controls="advanced-options-panel">
+                            <span>Opciones avanzadas (sitios concretos, timeout, proxies, recursión)</span>
+                            <span aria-hidden="true" id="advanced-chevron">+</span>
+                        </button>
+                        <div id="advanced-options-panel" class="advanced-panel" hidden>
+                            <div class="field-group">
+                                <label for="site-filter-input" class="field-label">Sitios concretos (<code>--site</code>, separados por comas)</label>
+                                <input type="text" class="form-control" id="site-filter-input" name="site"
+                                    value="{{ web_settings.site_list | join(',') }}"
+                                    autocorrect="off" autocapitalize="none" spellcheck="false"
+                                    placeholder="GitHub, Reddit">
+                            </div>
+                            <div class="field-group">
+                                <label for="timeout-input" class="field-label">Timeout en segundos (<code>--timeout</code>)</label>
+                                <input type="number" class="form-control" id="timeout-input" name="timeout" min="1"
+                                    value="{{ web_settings.timeout }}" inputmode="numeric">
+                            </div>
+                            <div class="field-group">
+                                <label for="proxy-input" class="field-label">Proxy HTTP/SOCKS5 (<code>--proxy</code>)</label>
+                                <input type="text" class="form-control" id="proxy-input" name="proxy"
+                                    value="{{ web_settings.proxy }}" placeholder="socks5://127.0.0.1:1080"
+                                    autocorrect="off" autocapitalize="none" spellcheck="false">
+                            </div>
+                            <div class="field-group">
+                                <label for="tor-proxy-input" class="field-label">TOR Proxy (<code>--tor-proxy</code>)</label>
+                                <input type="text" class="form-control" id="tor-proxy-input" name="tor_proxy"
+                                    value="{{ web_settings.tor_proxy }}" placeholder="socks5://127.0.0.1:9050"
+                                    autocorrect="off" autocapitalize="none" spellcheck="false">
+                            </div>
+                            <div class="field-group">
+                                <label for="i2p-proxy-input" class="field-label">I2P Proxy (<code>--i2p-proxy</code>)</label>
+                                <input type="text" class="form-control" id="i2p-proxy-input" name="i2p_proxy"
+                                    value="{{ web_settings.i2p_proxy }}" placeholder="http://127.0.0.1:4444"
+                                    autocorrect="off" autocapitalize="none" spellcheck="false">
+                            </div>
+                            <div class="check-grid">
+                                <label class="choice-item" for="disable_recursive_search">
+                                    <input type="checkbox" id="disable_recursive_search" name="disable_recursive_search"
+                                        {{ 'checked' if web_settings.disable_recursive_search }}>
+                                    <span><code>--no-recursion</code> Sin recursión</span>
+                                </label>
+                                <label class="choice-item" for="disable_extracting">
+                                    <input type="checkbox" id="disable_extracting" name="disable_extracting"
+                                        {{ 'checked' if web_settings.disable_extracting }}>
+                                    <span><code>--no-extracting</code> Sin extracción</span>
+                                </label>
+                                <label class="choice-item" for="with_domains">
+                                    <input type="checkbox" id="with_domains" name="with_domains"
+                                        {{ 'checked' if web_settings.with_domains }}>
+                                    <span><code>--with-domains</code> Comprobar dominios</span>
+                                </label>
+                                <label class="choice-item" for="use_cookies">
+                                    <input type="checkbox" id="use_cookies" name="use_cookies">
+                                    <span><code>--cookies-jar-file</code> Usar cookies.txt</span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </fieldset>
+
+                <div class="submit-actions">
+                    <button type="submit" id="startBtn" class="btn-primary-cta">
+                        Iniciar búsqueda en vivo
+                    </button>
+                    <button type="submit" id="startBgBtn" formaction="{{ url_for('search') }}"
+                        class="btn btn-outline-secondary btn-secondary-action">
+                        Ejecutar en segundo plano
+                    </button>
+                    <button type="button" id="resetBuilderBtn" class="btn btn-outline-secondary btn-secondary-action">
+                        Restablecer
+                    </button>
+                </div>
+            </form>
+        </search>
+    </div>
+
+    <aside class="sticky-aside" aria-label="Generador de comandos y ejemplos">
+        <section class="panel-card" aria-labelledby="cmd-preview-heading">
+            <h2 id="cmd-preview-heading">Comando CLI generado</h2>
+            <div class="copyable">
+                <pre tabindex="0" class="command-pre"><code id="cli-command-output">maigret user --html</code></pre>
+                <span class="copy">
+                    <button type="button" class="copy-button" command="--copy" commandfor="cli-command-output"
+                        aria-label="Copiar comando Maigret generado">
+                        <svg class="icon icon-copy" aria-hidden="true" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+                            <rect x="9" y="9" width="13" height="13" rx="2"/>
+                            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+                        </svg>
+                        <svg class="icon icon-check" aria-hidden="true" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5">
+                            <polyline points="20 6 9 17 4 12"/>
+                        </svg>
+                        <span>Copiar</span>
+                    </button>
+                    <span class="tip" role="status"></span>
+                </span>
+            </div>
+
+            <div id="ai-env-wrap" class="mt-2" hidden>
+                <label class="choice-item" for="include-openai-env">
+                    <input type="checkbox" id="include-openai-env">
+                    <span>Prefijar <code>OPENAI_API_KEY="$OPENAI_API_KEY"</code> en el comando</span>
+                </label>
+            </div>
+
+            <ul class="command-summary-list" id="command-summary"></ul>
+            <div id="builder-status" class="visually-hidden" role="status" aria-live="polite"></div>
+        </section>
+
+        <section class="panel-card" aria-labelledby="examples-heading">
+            <h2 id="examples-heading">Ejemplos interactivos (1 clic para cargar)</h2>
+            <p class="field-hint">Pulsa cualquier ejemplo para rellenar el formulario y generar el comando al instante.</p>
+
+            <div class="example-group-title">Informes visuales (HTML, PDF, XMind)</div>
+            <div class="example-list">
+                <button type="button" class="example-btn" data-preset="html">
+                    <code>maigret user --html</code>
+                    <span class="example-desc">Genera un informe HTML visual navegable</span>
+                </button>
+                <button type="button" class="example-btn" data-preset="pdf">
+                    <code>maigret user --pdf</code>
+                    <span class="example-desc">Genera un informe PDF descargable</span>
+                </button>
+                <button type="button" class="example-btn" data-preset="xmind">
+                    <code>maigret user --xmind</code>
+                    <span class="example-desc">Mapa mental XML heredado con manifest para XMind 2022+</span>
+                </button>
+            </div>
+
+            <div class="example-group-title">Exportación machine-readable y grafos</div>
+            <div class="example-list">
+                <button type="button" class="example-btn" data-preset="json_ndjson">
+                    <code>maigret user --json ndjson</code>
+                    <span class="example-desc">JSON delimitado por líneas (streaming / ingestión)</span>
+                </button>
+                <button type="button" class="example-btn" data-preset="json_simple">
+                    <code>maigret user --json simple</code>
+                    <span class="example-desc">JSON limpio listo para análisis con jq</span>
+                </button>
+                <button type="button" class="example-btn" data-preset="csv">
+                    <code>maigret user --csv</code>
+                    <span class="example-desc">Tabla CSV con estados y URLs encontradas</span>
+                </button>
+                <button type="button" class="example-btn" data-preset="txt">
+                    <code>maigret user --txt</code>
+                    <span class="example-desc">Archivo de texto plano con las URLs encontradas</span>
+                </button>
+                <button type="button" class="example-btn" data-preset="graph">
+                    <code>maigret user --graph</code>
+                    <span class="example-desc">Grafo interactivo HTML de relaciones</span>
+                </button>
+                <button type="button" class="example-btn" data-preset="neo4j">
+                    <code>maigret user --neo4j</code>
+                    <span class="example-desc">Script Cypher idempotente para importar en Neo4j</span>
+                </button>
+            </div>
+
+            <div class="example-group-title">Etiquetas, palabras clave, multiusuario, SOCMINT e IA</div>
+            <div class="example-list">
+                <button type="button" class="example-btn" data-preset="tags_photo_dating">
+                    <code>maigret user --tags photo,dating</code>
+                    <span class="example-desc">Busca solo en sitios de fotografía y citas</span>
+                </button>
+                <button type="button" class="example-btn" data-preset="tags_us">
+                    <code>maigret user --tags us</code>
+                    <span class="example-desc">Filtra sitios asociados a EE. UU.</span>
+                </button>
+                <button type="button" class="example-btn" data-preset="socmint_coding_social">
+                    <code>maigret user --top-sites 250 --tags coding,social --json simple</code>
+                    <span class="example-desc">Consulta SOCMINT enfocada (sin ruido) lista para jq</span>
+                </button>
+                <button type="button" class="example-btn" data-preset="keywords">
+                    <code>maigret user --keywords python rust</code>
+                    <span class="example-desc">Resalta con [++] páginas que mencionen python o rust</span>
+                </button>
+                <button type="button" class="example-btn" data-preset="multi_all">
+                    <code>maigret user1 user2 user3 -a</code>
+                    <span class="example-desc">Busca 3 usernames en todos los sitios disponibles</span>
+                </button>
+                <button type="button" class="example-btn" data-preset="ai">
+                    <code>maigret user --ai</code>
+                    <span class="example-desc">Resumen de investigación asistido por IA (requiere OPENAI_API_KEY)</span>
+                </button>
+                <button type="button" class="example-btn" data-preset="numeric_id">
+                    <code>maigret 10001 --id-type qq_id</code>
+                    <span class="example-desc">Trata el término como identificador numérico (modo --ids / --id-type)</span>
+                </button>
+            </div>
+        </section>
+    </aside>
+</div>
+
+<section class="panel-card socmint-section" aria-labelledby="socmint-ref-heading">
+    <h2 id="socmint-ref-heading">Referencia rápida de parámetros CLI y consulta SOCMINT</h2>
+    <div class="socmint-table-wrap">
+        <table class="table table-striped align-middle mb-0">
+            <caption>Parámetros principales para búsquedas SOCMINT y exportación en Maigret</caption>
+            <thead>
+                <tr>
+                    <th scope="col">Parámetro CLI</th>
+                    <th scope="col">Función en la consulta SOCMINT</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <th scope="row"><code>--top-sites N</code></th>
+                    <td>Prioriza las <em>N</em> plataformas más relevantes por tráfico global (o usa <code>-a</code> para consultar todo el catálogo).</td>
+                </tr>
+                <tr>
+                    <th scope="row"><code>--tags coding,social</code></th>
+                    <td>Filtra el rastreo por categoría de plataforma o país (ej. <code>photo,dating</code>, <code>us</code>) y evita ruido irrelevante.</td>
+                </tr>
+                <tr>
+                    <th scope="row"><code>--json simple</code> / <code>ndjson</code></th>
+                    <td><code>simple</code> genera un fichero JSON limpio listo para ingesta o análisis con <code>jq</code>; <code>ndjson</code> escribe un objeto por línea.</td>
+                </tr>
+                <tr>
+                    <th scope="row"><code>--ids</code> &rarr; <code>--id-type &lt;tipo&gt;</code></th>
+                    <td>Trata el término introducido como un identificador numérico en lugar de alias (en Maigret CLI se especifica con <code>--id-type</code>, p. ej. <code>vk_id</code>, <code>gaia_id</code>, <code>steam_id</code>, <code>qq_id</code>, o usando el modo automático en esta web).</td>
+                </tr>
+                <tr>
+                    <th scope="row"><code>--keywords python rust</code></th>
+                    <td>Busca palabras clave dentro del HTML de cada perfil hallado y marca las coincidencias con <code>[++]</code>.</td>
+                </tr>
+                <tr>
+                    <th scope="row"><code>--folderoutput</code> / <code>-fo</code></th>
+                    <td>Define la carpeta de salida donde se almacenan los informes (<code>--html</code>, <code>--pdf</code>, <code>--xmind</code>, <code>--csv</code>, <code>--txt</code>, <code>--graph</code>, <code>--neo4j</code>).</td>
+                </tr>
+                <tr>
+                    <th scope="row"><code>--ai</code></th>
+                    <td>Genera un resumen de investigación asistido por IA sobre los hallazgos (requiere <code>OPENAI_API_KEY</code>).</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</section>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const NUMERIC_ID_TYPES = {{ numeric_id_types | tojson }};
+    const DEFAULT_TOP_SITES = {{ web_settings.top_sites | tojson }};
+    const DEFAULT_TAGS = {{ web_settings.tags | tojson }};
+    const DEFAULT_EXCLUDED_TAGS = {{ web_settings.excluded_tags | tojson }};
+    const DEFAULT_FOLDER = {{ default_folderoutput | tojson }};
+
+    const form = document.getElementById('maigret-search-form');
+    const usernamesEl = document.getElementById('usernames');
+    const usernamesErrorEl = document.getElementById('usernames-error');
+    const targetsCounterEl = document.getElementById('targets-counter');
+    const idModeUsername = document.getElementById('id_mode_username');
+    const idModeNumeric = document.getElementById('id_mode_numeric');
+    const numericIdPanel = document.getElementById('numeric-id-panel');
+    const idTypeSelect = document.getElementById('id_type');
+    const permuteEl = document.getElementById('permute');
+    const folderEl = document.getElementById('folderoutput');
+    const modeFastEl = document.getElementById('mode-fast');
+    const modeFullEl = document.getElementById('mode-full');
+    const topSitesWrap = document.getElementById('top-sites-wrap');
+    const topSitesEl = document.getElementById('top_sites');
+    const tagsEl = document.getElementById('tags-input');
+    const excludedTagsEl = document.getElementById('excluded-tags-input');
+    const keywordsEl = document.getElementById('keywords-input');
+    const aiToggleEl = document.getElementById('ai-toggle');
+    const aiModelWrap = document.getElementById('ai-model-wrap');
+    const aiModelEl = document.getElementById('ai_model');
+    const aiEnvWrap = document.getElementById('ai-env-wrap');
+    const includeOpenaiEnvEl = document.getElementById('include-openai-env');
+    const siteEl = document.getElementById('site-filter-input');
+    const timeoutEl = document.getElementById('timeout-input');
+    const proxyEl = document.getElementById('proxy-input');
+    const torProxyEl = document.getElementById('tor-proxy-input');
+    const i2pProxyEl = document.getElementById('i2p-proxy-input');
+    const noRecursionEl = document.getElementById('disable_recursive_search');
+    const noExtractingEl = document.getElementById('disable_extracting');
+    const withDomainsEl = document.getElementById('with_domains');
+    const useCookiesEl = document.getElementById('use_cookies');
+    const cliOutEl = document.getElementById('cli-command-output');
+    const summaryEl = document.getElementById('command-summary');
+    const builderStatusEl = document.getElementById('builder-status');
+    const toggleAdvBtn = document.getElementById('toggle-advanced-btn');
+    const advPanel = document.getElementById('advanced-options-panel');
+    const advChevron = document.getElementById('advanced-chevron');
+    const loadTagsBtn = document.getElementById('load-all-tags-btn');
+    const extraTagsContainer = document.getElementById('extra-tags-container');
+
+    const formatCheckboxes = {
+        html: document.getElementById('fmt_html'),
+        pdf: document.getElementById('fmt_pdf'),
+        xmind: document.getElementById('fmt_xmind'),
+        md: document.getElementById('fmt_md'),
+        csv: document.getElementById('fmt_csv'),
+        txt: document.getElementById('fmt_txt'),
+        graph: document.getElementById('fmt_graph'),
+        neo4j: document.getElementById('fmt_neo4j'),
+    };
+
+    const jsonRadios = Array.from(document.querySelectorAll('input[name="json_format"]'));
+    const exampleButtons = Array.from(document.querySelectorAll('.example-btn'));
+
+    let usernamesEdited = false;
+
+    function shellQuote(arg) {
+        const s = String(arg);
+        if (/^[A-Za-z0-9._:/@=-]+$/.test(s)) {
+            return s;
+        }
+        return "'" + s.replace(/'/g, "'\\''") + "'";
+    }
+
+    function parseTargets(raw) {
+        return raw.replace(/,/g, ' ').split(/\s+/).map(s => s.trim()).filter(Boolean);
+    }
+
+    function parseCommaList(raw) {
+        return Array.from(new Set(
+            raw.replace(/\s+/g, ',').split(',').map(s => s.trim().toLowerCase()).filter(Boolean)
+        ));
+    }
+
+    function parseKeywords(raw) {
+        const tokens = [];
+        const re = /"([^"]+)"|'([^']+)'|(\S+)/g;
+        let m;
+        while ((m = re.exec(raw)) !== null) {
+            const val = (m[1] || m[2] || m[3] || '').trim();
+            if (val && !tokens.includes(val)) tokens.push(val);
+        }
+        return tokens;
+    }
+
+    function getSelectedJson() {
+        const checked = jsonRadios.find(r => r.checked);
+        return checked ? checked.value : '';
+    }
+
+    function setSelectedJson(val) {
+        jsonRadios.forEach(r => { r.checked = (r.value === (val || '')); });
+    }
+
+    function getEffectiveIdType() {
+        if (idModeNumeric.checked) {
+            return idTypeSelect.value || 'auto_ids';
+        }
+        return 'username';
+    }
+
+    function syncVisibility() {
+        const isNumeric = idModeNumeric.checked;
+        numericIdPanel.hidden = !isNumeric;
+        idTypeSelect.disabled = !isNumeric;
+
+        const isFull = modeFullEl.checked;
+        topSitesWrap.hidden = isFull;
+
+        const aiEnabled = aiToggleEl.checked;
+        aiModelWrap.hidden = !aiEnabled;
+        aiEnvWrap.hidden = !aiEnabled;
+    }
+
+    function syncTagButtons() {
+        const activeTags = new Set(parseCommaList(tagsEl.value));
+        document.querySelectorAll('.tag-toggle-btn').forEach(btn => {
+            btn.setAttribute('aria-pressed', activeTags.has(btn.dataset.tag) ? 'true' : 'false');
+        });
+    }
+
+    function updateTargetsCounter(targets) {
+        if (!targets.length) {
+            targetsCounterEl.textContent = 'Sin términos introducidos aún (el comando de ejemplo usa "user").';
+            return;
+        }
+        targetsCounterEl.textContent = targets.length === 1
+            ? '1 objetivo: ' + targets[0]
+            : targets.length + ' objetivos: ' + targets.join(', ');
+    }
+
+    function updateCliPreview() {
+        const rawTargets = parseTargets(usernamesEl.value);
+        updateTargetsCounter(rawTargets);
+        const targets = rawTargets.length ? rawTargets : ['user'];
+        const idType = getEffectiveIdType();
+        const flags = [];
+
+        if (idType !== 'username' && idType !== 'auto_ids') {
+            flags.push('--id-type', idType);
+        }
+
+        const folder = folderEl.value.trim();
+        if (folder && folder !== 'reports') {
+            flags.push('-fo', shellQuote(folder));
+        }
+
+        if (formatCheckboxes.html.checked) flags.push('--html');
+        if (formatCheckboxes.pdf.checked) flags.push('--pdf');
+        if (formatCheckboxes.xmind.checked) flags.push('--xmind');
+        if (formatCheckboxes.md.checked) flags.push('--md');
+
+        const jsonFmt = getSelectedJson();
+        if (jsonFmt === 'ndjson' || jsonFmt === 'simple') {
+            flags.push('--json', jsonFmt);
+        }
+        if (formatCheckboxes.csv.checked) flags.push('--csv');
+        if (formatCheckboxes.txt.checked) flags.push('--txt');
+        if (formatCheckboxes.graph.checked) flags.push('--graph');
+        if (formatCheckboxes.neo4j.checked) flags.push('--neo4j');
+
+        if (modeFullEl.checked) {
+            flags.push('-a');
+        } else {
+            const topVal = parseInt(topSitesEl.value, 10);
+            if (!Number.isNaN(topVal) && topVal > 0 && topVal !== 500) {
+                flags.push('--top-sites', String(topVal));
+            }
+        }
+
+        const tags = parseCommaList(tagsEl.value);
+        if (tags.length) {
+            flags.push('--tags', shellQuote(tags.join(',')));
+        }
+
+        const excluded = parseCommaList(excludedTagsEl.value);
+        if (excluded.length) {
+            flags.push('--exclude-tags', shellQuote(excluded.join(',')));
+        }
+
+        const sites = siteEl.value.split(',').map(s => s.trim()).filter(Boolean);
+        sites.forEach(s => {
+            flags.push('--site', shellQuote(s));
+        });
+
+        const keywords = parseKeywords(keywordsEl.value);
+        if (keywords.length) {
+            flags.push('--keywords');
+            keywords.forEach(kw => flags.push(shellQuote(kw)));
+        }
+
+        if (permuteEl.checked && targets.length > 1 && idType === 'username') {
+            flags.push('--permute');
+        }
+        if (noRecursionEl.checked) flags.push('--no-recursion');
+        if (noExtractingEl.checked) flags.push('--no-extracting');
+        if (withDomainsEl.checked) flags.push('--with-domains');
+        if (useCookiesEl.checked) flags.push('--cookies-jar-file', 'cookies.txt');
+        if (proxyEl.value.trim()) flags.push('--proxy', shellQuote(proxyEl.value.trim()));
+        if (torProxyEl.value.trim()) flags.push('--tor-proxy', shellQuote(torProxyEl.value.trim()));
+        if (i2pProxyEl.value.trim()) flags.push('--i2p-proxy', shellQuote(i2pProxyEl.value.trim()));
+
+        if (aiToggleEl.checked) {
+            flags.push('--ai');
+            const modelVal = aiModelEl.value.trim();
+            if (modelVal && modelVal !== 'gpt-5.4') {
+                flags.push('--ai-model', shellQuote(modelVal));
+            }
+        }
+
+        let cmd;
+        if (idType === 'auto_ids') {
+            const lines = [];
+            targets.forEach(t => {
+                NUMERIC_ID_TYPES.forEach(nt => lines.push(nt + ':' + t));
+            });
+            const printfPayload = shellQuote(lines.join('\\n') + '\\n');
+            cmd = 'printf ' + printfPayload + ' | ' + ['maigret', '--input-file', '-', ...flags].join(' ');
+        } else {
+            cmd = ['maigret', ...targets.map(shellQuote), ...flags].join(' ');
+        }
+
+        if (aiToggleEl.checked && includeOpenaiEnvEl.checked) {
+            cmd = 'OPENAI_API_KEY="$OPENAI_API_KEY" ' + cmd;
+        }
+
+        cliOutEl.textContent = cmd;
+        renderSummary(targets, idType, folder || 'reports', jsonFmt, tags, keywords);
+        syncTagButtons();
+    }
+
+    function renderSummary(targets, idType, folder, jsonFmt, tags, keywords) {
+        const items = [];
+        items.push('Objetivos: ' + targets.join(', ') + ' (' + (idType === 'auto_ids' ? 'todos los IDs numéricos' : idType) + ')');
+        items.push('Destino: ' + folder);
+
+        const activeFormats = [];
+        if (formatCheckboxes.html.checked) activeFormats.push('HTML');
+        if (formatCheckboxes.pdf.checked) activeFormats.push('PDF');
+        if (formatCheckboxes.xmind.checked) activeFormats.push('XMind');
+        if (formatCheckboxes.md.checked) activeFormats.push('Markdown');
+        if (jsonFmt) activeFormats.push('JSON (' + jsonFmt + ')');
+        if (formatCheckboxes.csv.checked) activeFormats.push('CSV');
+        if (formatCheckboxes.txt.checked) activeFormats.push('TXT');
+        if (formatCheckboxes.graph.checked) activeFormats.push('Graph HTML');
+        if (formatCheckboxes.neo4j.checked) activeFormats.push('Neo4j Cypher');
+        items.push('Salidas: ' + (activeFormats.length ? activeFormats.join(', ') : 'Solo vista web / consola'));
+
+        items.push(
+            modeFullEl.checked
+                ? 'Alcance: Todos los sitios disponibles (-a)'
+                : 'Alcance: Top ' + (topSitesEl.value || 500) + ' sitios por tráfico'
+        );
+        if (tags.length) items.push('Etiquetas incluidas: ' + tags.join(', '));
+        if (keywords.length) items.push('Resaltado [++] por palabras clave: ' + keywords.join(', '));
+        if (aiToggleEl.checked) items.push('Análisis IA: activado (--ai)');
+
+        summaryEl.textContent = '';
+        items.forEach(text => {
+            const li = document.createElement('li');
+            li.textContent = text;
+            summaryEl.appendChild(li);
+        });
+    }
+
+    function clearFormats() {
+        Object.values(formatCheckboxes).forEach(cb => { cb.checked = false; });
+        setSelectedJson('');
+    }
+
+    function applyFormatPreset(name) {
+        clearFormats();
+        if (name === 'html') {
+            formatCheckboxes.html.checked = true;
+        } else if (name === 'visual') {
+            formatCheckboxes.html.checked = true;
+            formatCheckboxes.pdf.checked = true;
+            formatCheckboxes.xmind.checked = true;
+        } else if (name === 'socmint') {
+            setSelectedJson('simple');
+            formatCheckboxes.csv.checked = true;
+        } else if (name === 'graphs') {
+            formatCheckboxes.graph.checked = true;
+            formatCheckboxes.neo4j.checked = true;
+        } else if (name === 'all') {
+            Object.values(formatCheckboxes).forEach(cb => { cb.checked = true; });
+            setSelectedJson('simple');
+        }
+        updateCliPreview();
+    }
+
+    const PRESETS = {
+        html: {
+            label: 'Informe HTML',
+            usernames: 'user',
+            idMode: 'username',
+            formats: { html: true },
+        },
+        pdf: {
+            label: 'Informe PDF',
+            usernames: 'user',
+            idMode: 'username',
+            formats: { pdf: true },
+        },
+        xmind: {
+            label: 'Informe XMind',
+            usernames: 'user',
+            idMode: 'username',
+            formats: { xmind: true },
+        },
+        json_ndjson: {
+            label: 'JSON NDJSON',
+            usernames: 'user',
+            idMode: 'username',
+            json: 'ndjson',
+        },
+        json_simple: {
+            label: 'JSON Simple para jq',
+            usernames: 'user',
+            idMode: 'username',
+            json: 'simple',
+        },
+        csv: {
+            label: 'Exportación CSV',
+            usernames: 'user',
+            idMode: 'username',
+            formats: { csv: true },
+        },
+        txt: {
+            label: 'Exportación TXT',
+            usernames: 'user',
+            idMode: 'username',
+            formats: { txt: true },
+        },
+        graph: {
+            label: 'Grafo interactivo HTML',
+            usernames: 'user',
+            idMode: 'username',
+            formats: { graph: true },
+        },
+        neo4j: {
+            label: 'Script Neo4j Cypher',
+            usernames: 'user',
+            idMode: 'username',
+            formats: { neo4j: true },
+        },
+        tags_photo_dating: {
+            label: 'Tags photo,dating',
+            usernames: 'user',
+            idMode: 'username',
+            tags: 'photo,dating',
+        },
+        tags_us: {
+            label: 'Tag us',
+            usernames: 'user',
+            idMode: 'username',
+            tags: 'us',
+        },
+        socmint_coding_social: {
+            label: 'SOCMINT coding,social + Top 250 + JSON simple',
+            usernames: 'user',
+            idMode: 'username',
+            topSites: 250,
+            tags: 'coding,social',
+            json: 'simple',
+        },
+        keywords: {
+            label: 'Palabras clave python rust',
+            usernames: 'user',
+            idMode: 'username',
+            keywords: 'python rust',
+        },
+        multi_all: {
+            label: 'Múltiples usernames en todos los sitios',
+            usernames: 'user1 user2 user3',
+            idMode: 'username',
+            allSites: true,
+        },
+        ai: {
+            label: 'Resumen con IA (--ai)',
+            usernames: 'user',
+            idMode: 'username',
+            ai: true,
+        },
+        numeric_id: {
+            label: 'Identificador numérico (qq_id)',
+            usernames: '10001',
+            idMode: 'numeric',
+            idType: 'qq_id',
+        },
+    };
+
+    function resetBuilder(keepUsernames) {
+        if (!keepUsernames) {
+            usernamesEl.value = '';
+        }
+        idModeUsername.checked = true;
+        idModeNumeric.checked = false;
+        idTypeSelect.value = 'auto_ids';
+        permuteEl.checked = false;
+        folderEl.value = DEFAULT_FOLDER || 'reports';
+        clearFormats();
+        modeFastEl.checked = true;
+        modeFullEl.checked = false;
+        topSitesEl.value = DEFAULT_TOP_SITES || 500;
+        tagsEl.value = (DEFAULT_TAGS || []).join(',');
+        excludedTagsEl.value = (DEFAULT_EXCLUDED_TAGS || []).join(',');
+        keywordsEl.value = '';
+        aiToggleEl.checked = false;
+        aiModelEl.value = 'gpt-5.4';
+        includeOpenaiEnvEl.checked = false;
+        usernamesEl.setCustomValidity('');
+        usernamesEl.removeAttribute('aria-invalid');
+        usernamesErrorEl.hidden = true;
+        syncVisibility();
+    }
+
+    function applyPreset(key) {
+        const preset = PRESETS[key];
+        if (!preset) return;
+        const currentUserText = usernamesEl.value.trim();
+        resetBuilder(true);
+
+        if (!currentUserText || PRESETS_DEFAULT_NAMES.has(currentUserText)) {
+            usernamesEl.value = preset.usernames;
+        }
+        if (preset.idMode === 'numeric') {
+            idModeNumeric.checked = true;
+            idModeUsername.checked = false;
+            idTypeSelect.value = preset.idType || 'auto_ids';
+            if (!currentUserText || PRESETS_DEFAULT_NAMES.has(currentUserText) || !/^\d+$/.test(currentUserText)) {
+                usernamesEl.value = preset.usernames;
+            }
+        }
+        if (preset.formats) {
+            Object.entries(preset.formats).forEach(([fmtKey, val]) => {
+                if (formatCheckboxes[fmtKey]) formatCheckboxes[fmtKey].checked = !!val;
+            });
+        }
+        if (preset.json) setSelectedJson(preset.json);
+        if (preset.allSites) {
+            modeFullEl.checked = true;
+            modeFastEl.checked = false;
+        } else if (preset.topSites) {
+            topSitesEl.value = preset.topSites;
+        }
+        if (preset.tags !== undefined) tagsEl.value = preset.tags;
+        if (preset.keywords !== undefined) keywordsEl.value = preset.keywords;
+        if (preset.ai) aiToggleEl.checked = true;
+
+        exampleButtons.forEach(btn => {
+            btn.classList.toggle('active-preset', btn.dataset.preset === key);
+        });
+        syncVisibility();
+        updateCliPreview();
+        builderStatusEl.textContent = 'Ejemplo cargado: ' + preset.label;
+    }
+
+    const PRESETS_DEFAULT_NAMES = new Set(['user', 'user1 user2 user3', '10001']);
+
+    // Validation lifecycle per forms guide: clear on input, validate on blur (if edited) and submit
+    function validateUsernames(showErrors) {
+        const hasValue = parseTargets(usernamesEl.value).length > 0;
+        if (hasValue) {
+            usernamesEl.setCustomValidity('');
+            usernamesEl.removeAttribute('aria-invalid');
+            usernamesErrorEl.hidden = true;
+            return true;
+        }
+        if (showErrors) {
+            usernamesEl.setCustomValidity('Introduce al menos un término de búsqueda.');
+            usernamesEl.setAttribute('aria-invalid', 'true');
+            usernamesErrorEl.hidden = false;
+        }
+        return false;
+    }
+
+    usernamesEl.addEventListener('input', function () {
+        usernamesEdited = true;
+        validateUsernames(false);
+        updateCliPreview();
+    });
+
+    usernamesEl.addEventListener('blur', function () {
+        if (usernamesEdited) {
+            validateUsernames(true);
+        }
+    });
+
+    form.addEventListener('submit', function (e) {
+        if (!validateUsernames(true)) {
+            e.preventDefault();
+            usernamesEl.focus();
+        }
+    });
+
+    [
+        idModeUsername, idModeNumeric, idTypeSelect, permuteEl, folderEl,
+        modeFastEl, modeFullEl, topSitesEl, tagsEl, excludedTagsEl, keywordsEl,
+        aiToggleEl, aiModelEl, includeOpenaiEnvEl, siteEl, timeoutEl, proxyEl,
+        torProxyEl, i2pProxyEl, noRecursionEl, noExtractingEl, withDomainsEl, useCookiesEl,
+        ...Object.values(formatCheckboxes), ...jsonRadios
+    ].forEach(el => {
+        if (!el) return;
+        const evtName = (el.tagName === 'INPUT' && (el.type === 'text' || el.type === 'number'))
+            ? 'input'
+            : 'change';
+        el.addEventListener(evtName, function () {
+            syncVisibility();
+            updateCliPreview();
+        });
+        if (evtName === 'input') {
+            el.addEventListener('change', function () {
+                syncVisibility();
+                updateCliPreview();
+            });
+        }
+    });
+
+    document.querySelectorAll('.folder-preset-btn').forEach(btn => {
+        btn.addEventListener('click', function () {
+            folderEl.value = this.dataset.folder;
+            updateCliPreview();
+        });
+    });
+
+    document.querySelectorAll('.top-preset-btn').forEach(btn => {
+        btn.addEventListener('click', function () {
+            modeFastEl.checked = true;
+            modeFullEl.checked = false;
+            topSitesEl.value = this.dataset.top;
+            syncVisibility();
+            updateCliPreview();
+        });
+    });
+
+    document.querySelectorAll('.fmt-preset-btn').forEach(btn => {
+        btn.addEventListener('click', function () {
+            applyFormatPreset(this.dataset.fmtPreset);
+        });
+    });
+
+    function toggleTagInInput(tagValue) {
+        const list = parseCommaList(tagsEl.value);
+        const idx = list.indexOf(tagValue);
+        if (idx >= 0) {
+            list.splice(idx, 1);
+        } else {
+            list.push(tagValue);
+        }
+        tagsEl.value = list.join(',');
+        updateCliPreview();
+    }
+
+    document.getElementById('quick-tags-row').addEventListener('click', function (e) {
+        const btn = e.target.closest('.tag-toggle-btn');
+        if (btn) toggleTagInInput(btn.dataset.tag);
+    });
+
+    extraTagsContainer.addEventListener('click', function (e) {
+        const btn = e.target.closest('.tag-toggle-btn');
+        if (btn) toggleTagInInput(btn.dataset.tag);
+    });
+
+    let allTagsLoaded = false;
+    loadTagsBtn.addEventListener('click', function () {
+        if (allTagsLoaded) {
+            extraTagsContainer.hidden = !extraTagsContainer.hidden;
+            return;
+        }
+        loadTagsBtn.textContent = 'Cargando…';
+        fetch("{{ url_for('api_tags') }}")
+            .then(r => r.json())
+            .then(data => {
+                allTagsLoaded = true;
+                loadTagsBtn.textContent = 'Ocultar / mostrar todas';
+                extraTagsContainer.textContent = '';
+                const existing = new Set(
+                    Array.from(document.querySelectorAll('#quick-tags-row .tag-toggle-btn'))
+                        .map(b => b.dataset.tag)
+                );
+                const merged = [...(data.category_tags || []), ...(data.country_tags || [])];
+                merged.forEach(tag => {
+                    if (existing.has(tag)) return;
+                    const btn = document.createElement('button');
+                    btn.type = 'button';
+                    btn.className = 'chip-btn tag-toggle-btn';
+                    btn.dataset.tag = tag;
+                    btn.textContent = tag;
+                    extraTagsContainer.appendChild(btn);
+                });
+                extraTagsContainer.hidden = false;
+                syncTagButtons();
+            })
+            .catch(() => {
+                loadTagsBtn.textContent = 'Error al cargar etiquetas';
+            });
+    });
+
+    toggleAdvBtn.addEventListener('click', function () {
+        const expanded = this.getAttribute('aria-expanded') === 'true';
+        this.setAttribute('aria-expanded', String(!expanded));
+        advPanel.hidden = expanded;
+        advChevron.textContent = expanded ? '+' : '−';
+    });
+
+    exampleButtons.forEach(btn => {
+        btn.addEventListener('click', function () {
+            applyPreset(this.dataset.preset);
+        });
+    });
+
+    document.getElementById('resetBuilderBtn').addEventListener('click', function () {
+        resetBuilder(false);
+        formatCheckboxes.html.checked = true;
+        exampleButtons.forEach(btn => btn.classList.remove('active-preset'));
+        updateCliPreview();
+        builderStatusEl.textContent = 'Formulario restablecido a valores por defecto.';
+    });
+
+    syncVisibility();
+    updateCliPreview();
+});
+</script>
 {% endblock %}

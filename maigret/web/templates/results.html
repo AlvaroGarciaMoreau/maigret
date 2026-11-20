@@ -1,148 +1,347 @@
 {% extends "base.html" %}
+{% block title %}Search Results — Maigret{% endblock %}
 {% block content %}
 <style>
+    .results-summary-card {
+        background-color: var(--surface-card);
+        border: 1px solid var(--border-subtle);
+        border-radius: 10px;
+        padding: 1.25rem;
+        margin-block-end: 1.5rem;
+    }
+
+    .summary-meta-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 0.85rem;
+        margin-block-end: 1rem;
+    }
+
+    .meta-item-label {
+        font-size: 0.78rem;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        color: var(--text-muted-custom);
+        margin-block-end: 0.15rem;
+    }
+
+    .command-pre-results {
+        flex: 1;
+        min-inline-size: 0;
+        margin: 0;
+        padding: 0.7rem 0.9rem;
+        border-radius: 8px;
+        background-color: #0f172a;
+        color: #f8fafc;
+        border: 1px solid #334155;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+        font-size: 0.88rem;
+        overflow-x: auto;
+        white-space: pre-wrap;
+        word-break: break-word;
+        color-scheme: dark;
+    }
+
+    .ai-analysis-card {
+        background-color: var(--surface-card);
+        border: 1px solid var(--border-subtle);
+        border-inline-start: 4px solid var(--cta-bg);
+        border-radius: 10px;
+        padding: 1.25rem;
+        margin-block-end: 1.5rem;
+    }
+
+    .ai-analysis-body {
+        white-space: pre-wrap;
+        font-family: inherit;
+        line-height: 1.55;
+        margin: 0;
+    }
+
     .tag-badge {
-       background-color: #214e7b;
-       padding: 2px 8px;
-       border-radius: 12px;
-       font-size: 14px;
-       display: inline-flex;
-       align-items: center;
-       gap: 5px;
-       margin: 2px;
-       color: white;
+        background-color: #214e7b;
+        padding: 2px 8px;
+        border-radius: 12px;
+        font-size: 13px;
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        margin: 2px;
+        color: #ffffff;
     }
-    
+
+    .kw-badge {
+        background-color: #16a34a;
+        color: #ffffff;
+        padding: 2px 7px;
+        border-radius: 4px;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+        font-size: 0.82rem;
+        font-weight: 700;
+    }
+
     .profile-list {
-       list-style: none;
-       padding: 0;
+        list-style: none;
+        padding: 0;
+        margin: 0.5rem 0 0;
     }
-    
+
     .profile-item {
-       margin-bottom: 10px;
-       padding: 10px;
-       display: flex;
-       justify-content: space-between;
-       align-items: center;
-       border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        margin-block-end: 0.5rem;
+        padding: 0.65rem 0.5rem;
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: space-between;
+        align-items: center;
+        gap: 0.5rem;
+        border-block-end: 1px solid var(--border-subtle);
     }
-    
+
     .profile-link {
-       display: flex;
-       align-items: center;
-       gap: 8px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
     }
-    
+
     .favicon {
-       width: 16px;
-       height: 16px;
+        width: 16px;
+        height: 16px;
     }
-    
+
     .tag-container {
-       display: flex;
-       flex-wrap: wrap;
-       gap: 5px;
-       justify-content: flex-end;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px;
+        justify-content: flex-end;
     }
-    
+
     .report-container {
-       margin-bottom: 1rem;
+        margin-block-end: 1rem;
+        background-color: var(--surface-card);
+        border: 1px solid var(--border-subtle);
+        border-radius: 8px;
+        overflow: hidden;
     }
-    
+
     .report-header {
-       cursor: pointer;
-       padding: 1rem;
-       background: rgba(255, 255, 255, 0.05);
-       border-radius: 4px;
-       margin-bottom: 0.5rem;
+        inline-size: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        text-align: start;
+        cursor: pointer;
+        padding: 0.9rem 1rem;
+        background: var(--surface-subtle);
+        color: var(--text-primary);
+        border: none;
+        font-size: 1.05rem;
+        font-weight: 600;
     }
-    
+
     .report-content {
-       display: none;
+        padding: 1rem;
     }
-    
-    .report-content.show {
-       display: block;
-    }
-    
-    .chevron::after {
-       content: '▼';
-       margin-left: 8px;
-       transition: transform 0.2s;
-    }
-    
-    .chevron.collapsed::after {
-       transform: rotate(-90deg);
-    }
-    </style>
 
-    <div class="form-container">
-        <h1 class="mb-4">Search Results</h1>
+    .report-links-bar {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        margin-block-end: 0.85rem;
+    }
 
-        <p>The search has completed. <a href="{{ url_for('index')}}">Back to start.</a></p>
-     
-        {% if graph_file %}
-        <h3>Combined Graph</h3>
-        <iframe src="{{ url_for('download_report', filename=graph_file) }}" style="width:100%; height:600px; border:none;"></iframe>
+    .graph-frame {
+        inline-size: 100%;
+        block-size: 560px;
+        border: 1px solid var(--border-subtle);
+        border-radius: 8px;
+    }
+</style>
+
+<div class="form-container">
+    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+        <h1 class="h2 mb-0">Search Results</h1>
+        <a href="{{ url_for('index') }}" class="btn btn-outline-secondary">Back to start</a>
+    </div>
+
+    {% if warnings %}
+    {% for warning in warnings %}
+    <div class="alert alert-warning" role="status">{{ warning }}</div>
+    {% endfor %}
+    {% endif %}
+
+    {% if export_error %}
+    <div class="alert alert-warning" role="status">{{ export_error }}</div>
+    {% endif %}
+
+    <section class="results-summary-card" aria-labelledby="summary-heading">
+        <h2 id="summary-heading" class="h5 mb-3">Resumen de la ejecución</h2>
+        <div class="summary-meta-grid">
+            <div>
+                <div class="meta-item-label">Objetivos</div>
+                <div><strong>{{ usernames | join(', ') }}</strong> {% if id_type and id_type != 'username' %}(<code>{{ id_type }}</code>){% endif %}</div>
+            </div>
+            <div>
+                <div class="meta-item-label">Perfiles detectados</div>
+                <div><strong>{{ found_count }}</strong></div>
+            </div>
+            {% if exported_folder %}
+            <div>
+                <div class="meta-item-label">Carpeta de salida personalizada</div>
+                <div><code>{{ exported_folder }}</code></div>
+            </div>
+            {% endif %}
+            {% if session_folder_path %}
+            <div>
+                <div class="meta-item-label">Carpeta de sesión web</div>
+                <div><code>{{ session_folder_path }}</code></div>
+            </div>
+            {% endif %}
+        </div>
+
+        {% if cli_command %}
+        <div>
+            <div class="meta-item-label">Comando CLI equivalente</div>
+            <div class="copyable">
+                <pre tabindex="0" class="command-pre-results"><code id="executed-cli-cmd">{{ cli_command }}</code></pre>
+                <span class="copy">
+                    <button type="button" class="copy-button" command="--copy" commandfor="executed-cli-cmd" aria-label="Copiar comando CLI ejecutado">
+                        <svg class="icon icon-copy" aria-hidden="true" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+                            <rect x="9" y="9" width="13" height="13" rx="2"/>
+                            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+                        </svg>
+                        <svg class="icon icon-check" aria-hidden="true" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5">
+                            <polyline points="20 6 9 17 4 12"/>
+                        </svg>
+                        <span>Copiar</span>
+                    </button>
+                    <span class="tip" role="status"></span>
+                </span>
+            </div>
+        </div>
         {% endif %}
-     
-        <hr>
-     
-        {% if individual_reports %}
-        <h3>Individual Reports</h3>
-        <div class="reports-list">
-            {% for report in individual_reports %}
-            <div class="report-container">
-                <div class="report-header" onclick="toggleReport(this)" data-target="report-{{ loop.index }}">
-                    <h5 class="mb-0 d-flex align-items-center">
-                        <span>{{ report.username }}</span>
-                        <span class="chevron"></span>
-                    </h5>
-                </div>
-                <div id="report-{{ loop.index }}" class="report-content">
-                    <p>
-                        <a href="{{ url_for('download_report', filename=report.csv_file) }}" target="_blank" rel="noopener">CSV Report</a> |
-                        <a href="{{ url_for('download_report', filename=report.json_file) }}" target="_blank" rel="noopener">JSON Report</a> |
-                        <a href="{{ url_for('download_report', filename=report.pdf_file) }}" target="_blank" rel="noopener">PDF Report</a> |
-                        <a href="{{ url_for('download_report', filename=report.html_file) }}" target="_blank" rel="noopener">HTML Report</a>
-                    </p>
-                    {% if report.claimed_profiles %}
-                    <strong>Claimed Profiles:</strong>
-                    <ul class="profile-list">
-                        {% for profile in report.claimed_profiles %}
-                        <li class="profile-item">
-                            <div class="profile-link">
-                                <img class="favicon" src="https://www.google.com/s2/favicons?domain={{ profile.url }}" onerror="this.style.display='none'" alt="">
-                                <a href="{{ profile.url }}" target="_blank">{{ profile.site_name }}</a>
-                            </div>
-                            {% if profile.tags %}
-                            <div class="tag-container">
-                                {% for tag in profile.tags %}
-                                <span class="tag-badge">{{ tag }}</span>
-                                {% endfor %}
-                            </div>
-                            {% endif %}
-                        </li>
-                        {% endfor %}
-                    </ul>
-                    {% else %}
-                    <p>No claimed profiles found.</p>
+
+        {% if neo4j_file or ai_file or graph_file %}
+        <div class="mt-3 report-links-bar">
+            {% if graph_file %}
+            <a class="btn btn-sm btn-outline-primary" href="{{ url_for('download_report', filename=graph_file) }}" target="_blank" rel="noopener">Open Graph HTML</a>
+            {% endif %}
+            {% if neo4j_file %}
+            <a class="btn btn-sm btn-outline-primary" href="{{ url_for('download_report', filename=neo4j_file) }}" target="_blank" rel="noopener">Neo4j Cypher Script</a>
+            {% endif %}
+            {% if ai_file %}
+            <a class="btn btn-sm btn-outline-primary" href="{{ url_for('download_report', filename=ai_file) }}" target="_blank" rel="noopener">AI Summary (.md)</a>
+            {% endif %}
+        </div>
+        {% endif %}
+    </section>
+
+    {% if ai_analysis %}
+    <section class="ai-analysis-card" aria-labelledby="ai-heading">
+        <h2 id="ai-heading" class="h5 mb-2">Resumen asistido por IA (<code>--ai</code>)</h2>
+        <div class="ai-analysis-body">{{ ai_analysis }}</div>
+    </section>
+    {% elif ai_error %}
+    <div class="alert alert-warning" role="status">{{ ai_error }}</div>
+    {% endif %}
+
+    {% if graph_file %}
+    <section class="mb-4" aria-labelledby="graph-heading">
+        <h2 id="graph-heading" class="h4 mb-2">Combined Graph</h2>
+        <iframe title="Interactive Maigret connections graph" class="graph-frame" src="{{ url_for('download_report', filename=graph_file) }}"></iframe>
+    </section>
+    {% endif %}
+
+    <hr>
+
+    {% if individual_reports %}
+    <h2 class="h4 mb-3">Individual Reports</h2>
+    <div class="reports-list">
+        {% for report in individual_reports %}
+        {% set is_open = loop.first and (individual_reports | length == 1) %}
+        <div class="report-container">
+            <h3 class="h5 mb-0">
+                <button type="button" class="report-header" aria-expanded="{{ 'true' if is_open else 'false' }}" aria-controls="report-{{ loop.index }}">
+                    <span>
+                        {{ report.username }}
+                        {% if report.id_type and report.id_type != 'username' %}
+                        <small class="text-muted">({{ report.id_type }})</small>
+                        {% endif %}
+                        — {{ report.claimed_profiles | length }} encontrados
+                    </span>
+                    <span class="report-chevron" aria-hidden="true">{{ '▼' if is_open else '▶' }}</span>
+                </button>
+            </h3>
+            <div id="report-{{ loop.index }}" class="report-content" {{ '' if is_open else 'hidden' }}>
+                <div class="report-links-bar">
+                    {% if report.csv_file %}
+                    <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('download_report', filename=report.csv_file) }}" target="_blank" rel="noopener">CSV Report</a>
+                    {% endif %}
+                    {% if report.json_file %}
+                    <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('download_report', filename=report.json_file) }}" target="_blank" rel="noopener">JSON Report{% if json_format %} ({{ json_format }}){% endif %}</a>
+                    {% endif %}
+                    {% if report.pdf_file %}
+                    <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('download_report', filename=report.pdf_file) }}" target="_blank" rel="noopener">PDF Report</a>
+                    {% endif %}
+                    {% if report.html_file %}
+                    <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('download_report', filename=report.html_file) }}" target="_blank" rel="noopener">HTML Report</a>
+                    {% endif %}
+                    {% if report.txt_file %}
+                    <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('download_report', filename=report.txt_file) }}" target="_blank" rel="noopener">TXT Report</a>
+                    {% endif %}
+                    {% if report.xmind_file %}
+                    <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('download_report', filename=report.xmind_file) }}" target="_blank" rel="noopener">XMind Report</a>
+                    {% endif %}
+                    {% if report.md_file %}
+                    <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('download_report', filename=report.md_file) }}" target="_blank" rel="noopener">Markdown Report</a>
                     {% endif %}
                 </div>
+                {% if report.claimed_profiles %}
+                <strong>Claimed Profiles:</strong>
+                <ul class="profile-list">
+                    {% for profile in report.claimed_profiles %}
+                    <li class="profile-item">
+                        <div class="profile-link">
+                            <img class="favicon" src="https://www.google.com/s2/favicons?domain={{ profile.url }}" alt="" loading="lazy">
+                            {% if profile.keyword_match %}
+                            <span class="kw-badge" title="Keyword match">[++]</span>
+                            {% endif %}
+                            <a href="{{ profile.url }}" target="_blank" rel="noopener">{{ profile.site_name }}</a>
+                        </div>
+                        {% if profile.tags %}
+                        <div class="tag-container">
+                            {% for tag in profile.tags %}
+                            <span class="tag-badge">{{ tag }}</span>
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+                    </li>
+                    {% endfor %}
+                </ul>
+                {% else %}
+                <p class="mb-0">No claimed profiles found.</p>
+                {% endif %}
             </div>
-            {% endfor %}
         </div>
-        {% else %}
-        <p>No individual reports available.</p>
-        {% endif %}
-     </div>
-     
-     <script>
-     function toggleReport(header) {
-        const reportId = header.getAttribute('data-target');
-        const content = document.getElementById(reportId);
-        content.classList.toggle('show');
-        header.querySelector('.chevron').classList.toggle('collapsed');
-     }
-     </script>
+        {% endfor %}
+    </div>
+    {% else %}
+    <p>No individual reports available.</p>
+    {% endif %}
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    document.querySelectorAll('.report-header').forEach(btn => {
+        btn.addEventListener('click', function () {
+            const targetId = this.getAttribute('aria-controls');
+            const content = document.getElementById(targetId);
+            const expanded = this.getAttribute('aria-expanded') === 'true';
+            this.setAttribute('aria-expanded', String(!expanded));
+            if (content) content.hidden = expanded;
+            const chevron = this.querySelector('.report-chevron');
+            if (chevron) chevron.textContent = expanded ? '▶' : '▼';
+        });
+    });
+});
+</script>
 {% endblock %}

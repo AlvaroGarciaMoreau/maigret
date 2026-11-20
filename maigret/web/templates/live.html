@@ -1,40 +1,94 @@
 {% extends "base.html" %}
+{% block title %}Live Results — Maigret{% endblock %}
 {% block content %}
 <style>
     #graph {
-        height: 600px;
-        border: 1px solid var(--bs-border-color);
+        block-size: 560px;
+        border: 1px solid var(--border-subtle);
         border-radius: 8px;
-        background: rgba(255, 255, 255, 0.02);
+        background: var(--surface-card);
     }
 
     .live-stats {
         display: flex;
-        gap: 1.5rem;
+        gap: 1.25rem;
         flex-wrap: wrap;
         align-items: center;
-        margin-bottom: 0.75rem;
+        margin-block-end: 0.75rem;
+    }
+
+    .kw-hit-badge {
+        display: inline-block;
+        padding: 0.1rem 0.45rem;
+        border-radius: 4px;
+        background-color: #16a34a;
+        color: #ffffff;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+        font-size: 0.78rem;
+        font-weight: 700;
+    }
+
+    .live-hits-panel {
+        margin-block-start: 1.25rem;
+        background-color: var(--surface-card);
+        border: 1px solid var(--border-subtle);
+        border-radius: 8px;
+        padding: 1rem;
+    }
+
+    .live-hits-list {
+        list-style: none;
+        padding: 0;
+        margin: 0.5rem 0 0;
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+        gap: 0.5rem;
+    }
+
+    .live-hit-item {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.5rem;
+        padding: 0.45rem 0.65rem;
+        border-radius: 6px;
+        background-color: var(--surface-subtle);
+        border: 1px solid var(--border-subtle);
+        min-inline-size: 0;
+    }
+
+    .live-hit-item a {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
     }
 </style>
 
 <div class="form-container">
-    <div class="d-flex justify-content-between align-items-center mb-2">
-        <h1 class="mb-0">Live Results</h1>
-        <div>
+    <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
+        <h1 class="h2 mb-0">Live Results</h1>
+        <div class="d-flex gap-2">
             <a id="analyzeBtn" href="#" class="btn btn-warning" style="display:none;">Analyze</a>
             <button type="button" id="stopBtn" class="btn btn-danger">Stop</button>
         </div>
     </div>
-    <div class="live-stats">
+    <div class="live-stats" aria-live="polite">
         <span id="live-status" class="text-muted">Starting…</span>
         <span>Checked: <strong id="stat-checked">0</strong> / <span id="stat-total">?</span></span>
         <span>Found: <strong id="stat-found">0</strong></span>
+        <span>Keyword <code>[++]</code>: <strong id="stat-keywords">0</strong></span>
+        <span>Errors: <strong id="stat-errors">0</strong></span>
     </div>
     <div class="progress mb-3" style="height: 8px;">
-        <div id="live-progress" class="progress-bar" role="progressbar" style="width: 0%;"></div>
+        <div id="live-progress" class="progress-bar" role="progressbar" style="width: 0%;" aria-valuemin="0" aria-valuemax="100"></div>
     </div>
     <div id="graph"></div>
     <p class="text-muted mt-2" style="font-size: 0.85rem;">Double-click a site node to open the profile.</p>
+
+    <section class="live-hits-panel" aria-labelledby="live-hits-heading">
+        <h2 id="live-hits-heading" class="h5 mb-0">Detected Profiles</h2>
+        <ul id="live-hits" class="live-hits-list"></ul>
+    </section>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/vis-network@9.1.9/standalone/umd/vis-network.min.js"></script>
@@ -42,9 +96,14 @@
 <script>
     const jobId = {{ job_id|tojson }};
     const doneRedirect = {{ done_redirect|tojson }};
+    const doneFoundCount = {{ done_found_count | default(0) | tojson }};
 
     let nodes = null, edges = null, network = null;
-    let foundCount = 0;
+    let foundCount = doneRedirect ? doneFoundCount : 0;
+    let keywordCount = 0;
+    let errorCount = 0;
+    let evtSource = null;
+    let streamFinished = false;
 
     function ensureGraph() {
         if (network) return;
@@ -52,7 +111,7 @@
         edges = new vis.DataSet();
         network = new vis.Network(document.getElementById('graph'), { nodes, edges }, {
             nodes: { shape: 'dot', size: 14, font: { color: '#dee2e6' } },
-            edges: { color: { color: '#555' }, smooth: false },
+            edges: { color: { color: '#64748b' }, smooth: false },
             physics: {
                 solver: 'forceAtlas2Based',
                 forceAtlas2Based: { gravitationalConstant: -60, springLength: 110 },
@@ -61,13 +120,14 @@
             groups: {
                 username: { color: '#f9cf00', shape: 'star', size: 22 },
                 site: { color: '#28a745' },
+                site_kw: { color: { background: '#22c55e', border: '#bbf7d0' }, borderWidth: 3, size: 18 },
                 data: { color: '#214e7b', shape: 'box' },
             },
         });
         network.on('doubleClick', function (params) {
             if (params.nodes.length) {
                 const n = nodes.get(params.nodes[0]);
-                if (n && n.url) window.open(n.url, '_blank');
+                if (n && n.url) window.open(n.url, '_blank', 'noopener');
             }
         });
     }
@@ -81,8 +141,6 @@
         if (!edges.get(id)) edges.add({ id, from, to });
     }
 
-    // Noisy/derived keys that add clutter without identity value (mirrors the
-    // report graph's filtering intent).
     const SKIP_ID = /(_count$|^is_|_at$|image|avatar|thumbnail)/i;
 
     function shortLabel(s) {
@@ -90,12 +148,41 @@
         return s.length > 28 ? s.slice(0, 27) + '…' : s;
     }
 
+    function appendLiveHit(ev) {
+        const list = document.getElementById('live-hits');
+        const li = document.createElement('li');
+        li.className = 'live-hit-item';
+
+        const link = document.createElement('a');
+        link.href = ev.url || '#';
+        link.target = '_blank';
+        link.rel = 'noopener';
+        const prefix = ev.id_type && ev.id_type !== 'username' ? '[' + ev.id_type + '] ' : '';
+        link.textContent = prefix + ev.site + ' (' + ev.username + ')';
+        li.appendChild(link);
+
+        if (ev.keyword_match) {
+            const badge = document.createElement('span');
+            badge.className = 'kw-hit-badge';
+            badge.textContent = '[++]';
+            badge.title = 'Keyword match found on page';
+            li.appendChild(badge);
+        }
+
+        list.appendChild(li);
+    }
+
     function addFound(ev) {
         ensureGraph();
-        const uId = 'u:' + ev.username.toLowerCase();
-        addNode(uId, ev.username, 'username');
+        const uId = 'u:' + (ev.id_type || 'username') + ':' + ev.username.toLowerCase();
+        const uLabel = ev.id_type && ev.id_type !== 'username'
+            ? ev.username + ' (' + ev.id_type + ')'
+            : ev.username;
+        addNode(uId, uLabel, 'username');
         const sId = 's:' + ev.site;
-        addNode(sId, ev.site, 'site', { url: ev.url, title: ev.url });
+        const siteGroup = ev.keyword_match ? 'site_kw' : 'site';
+        const siteLabel = ev.keyword_match ? '[++] ' + ev.site : ev.site;
+        addNode(sId, siteLabel, siteGroup, { url: ev.url, title: ev.url });
         addEdge(uId, sId);
         for (const [k, v] of Object.entries(ev.ids || {})) {
             if (SKIP_ID.test(k) || String(v).length > 80) continue;
@@ -103,6 +190,7 @@
             addNode(vId, shortLabel(v), 'data', { title: k + ': ' + v });
             addEdge(sId, vId);
         }
+        appendLiveHit(ev);
     }
 
     function finish(statusText, redirect) {
@@ -127,9 +215,16 @@
         const statusEl = document.getElementById('live-status');
         if (ev.type === 'start') {
             document.getElementById('stat-total').textContent = ev.total;
-            statusEl.textContent = 'Scanning ' + ev.username + '…';
+            const label = ev.id_type && ev.id_type !== 'username'
+                ? ev.username + ' (' + ev.id_type + ')'
+                : ev.username;
+            statusEl.textContent = 'Scanning ' + label + '…';
         } else if (ev.type === 'progress') {
             document.getElementById('stat-checked').textContent = ev.checked;
+            if (typeof ev.errors === 'number') {
+                errorCount = ev.errors;
+                document.getElementById('stat-errors').textContent = errorCount;
+            }
             if (ev.total) {
                 const pct = Math.min(ev.checked, ev.total) / ev.total * 100;
                 document.getElementById('live-progress').style.width = pct + '%';
@@ -137,15 +232,31 @@
         } else if (ev.type === 'found') {
             foundCount++;
             document.getElementById('stat-found').textContent = foundCount;
+            if (ev.keyword_match) {
+                keywordCount++;
+                document.getElementById('stat-keywords').textContent = keywordCount;
+            }
             addFound(ev);
         } else if (ev.type === 'stopped') {
             statusEl.textContent = 'Stopped.';
         } else if (ev.type === 'error') {
             statusEl.textContent = 'Error: ' + ev.message;
         } else if (ev.type === 'done') {
-            const text = ev.redirect
+            streamFinished = true;
+            if (evtSource) {
+                evtSource.close();
+                evtSource = null;
+            }
+            if (typeof ev.found_count === 'number' && ev.found_count > foundCount) {
+                foundCount = ev.found_count;
+                document.getElementById('stat-found').textContent = foundCount;
+            }
+            let text = ev.redirect
                 ? 'Completed — ' + foundCount + ' accounts found.'
                 : 'Completed — nothing to analyze.';
+            if (errorCount > 0 && foundCount === 0) {
+                text += ' (' + errorCount + ' connection/DNS errors — check network access or proxy)';
+            }
             finish(text, ev.redirect);
         }
     }
@@ -153,10 +264,17 @@
     document.getElementById('stopBtn').addEventListener('click', stopScan);
 
     if (doneRedirect) {
+        document.getElementById('stat-found').textContent = foundCount;
         finish('Completed — ' + foundCount + ' accounts found.', doneRedirect);
     } else {
-        const evtSource = new EventSource('/api/scan/' + jobId + '/stream');
+        evtSource = new EventSource('/api/scan/' + jobId + '/stream');
         evtSource.onmessage = onScanEvent;
+        evtSource.onerror = function () {
+            if (streamFinished && evtSource) {
+                evtSource.close();
+                evtSource = null;
+            }
+        };
     }
 </script>
 {% endblock %}

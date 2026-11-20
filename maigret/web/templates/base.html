@@ -1,108 +1,348 @@
 <!DOCTYPE html>
-<html lang="en" data-bs-theme="dark">
+<html lang="{% block html_lang %}es{% endblock %}">
 
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Maigret Web Interface</title>
+    <meta name="color-scheme" content="light dark">
+    <script>
+        try {
+            const storedScheme = localStorage.getItem("color-scheme");
+            const metaScheme = storedScheme === "light" || storedScheme === "dark" ? storedScheme : "light dark";
+            document.querySelector('meta[name="color-scheme"]').content = metaScheme;
+            const resolvedTheme = metaScheme === "light dark"
+                ? (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light")
+                : metaScheme;
+            document.documentElement.setAttribute("data-bs-theme", resolvedTheme);
+        } catch (err) {
+            document.documentElement.setAttribute("data-bs-theme", "dark");
+        }
+    </script>
+    <title>{% block title %}Maigret — Interfaz Web OSINT{% endblock %}</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
+        :root {
+            --brand-accent-light: #b45309;
+            --brand-accent-dark: #f9cf00;
+            --accent-color: var(--brand-accent-light);
+            --surface-bg: #f8fafc;
+            --surface-card: #ffffff;
+            --surface-subtle: #f1f5f9;
+            --border-subtle: #cbd5e1;
+            --text-primary: #0f172a;
+            --text-muted-custom: #475569;
+            --focus-ring: #0b57d0;
+            --scrollbar-track: #e2e8f0;
+            --scrollbar-thumb: #64748b;
+            --cta-bg: #f9cf00;
+            --cta-bg-hover: #eab308;
+            --cta-text: #111827;
+
+            color-scheme: light dark;
+            accent-color: var(--accent-color);
+            scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+        }
+
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --accent-color: var(--brand-accent-dark);
+                --surface-bg: #14171c;
+                --surface-card: #1d2229;
+                --surface-subtle: #252b34;
+                --border-subtle: #374151;
+                --text-primary: #f1f5f9;
+                --text-muted-custom: #94a3b8;
+                --focus-ring: #f9cf00;
+                --scrollbar-track: #1e293b;
+                --scrollbar-thumb: #64748b;
+            }
+        }
+
+        :root:has(> head > meta[name="color-scheme"][content="dark"]) {
+            color-scheme: dark;
+            --accent-color: var(--brand-accent-dark);
+            --surface-bg: #14171c;
+            --surface-card: #1d2229;
+            --surface-subtle: #252b34;
+            --border-subtle: #374151;
+            --text-primary: #f1f5f9;
+            --text-muted-custom: #94a3b8;
+            --focus-ring: #f9cf00;
+            --scrollbar-track: #1e293b;
+            --scrollbar-thumb: #64748b;
+        }
+
+        :root:has(> head > meta[name="color-scheme"][content="light"]) {
+            color-scheme: light;
+            --accent-color: var(--brand-accent-light);
+            --surface-bg: #f8fafc;
+            --surface-card: #ffffff;
+            --surface-subtle: #f1f5f9;
+            --border-subtle: #cbd5e1;
+            --text-primary: #0f172a;
+            --text-muted-custom: #475569;
+            --focus-ring: #0b57d0;
+            --scrollbar-track: #e2e8f0;
+            --scrollbar-thumb: #64748b;
+        }
+
+        @supports (color: light-dark(white, black)) {
+            :root {
+                --accent-color: light-dark(var(--brand-accent-light), var(--brand-accent-dark));
+                --surface-bg: light-dark(#f8fafc, #14171c);
+                --surface-card: light-dark(#ffffff, #1d2229);
+                --surface-subtle: light-dark(#f1f5f9, #252b34);
+                --border-subtle: light-dark(#cbd5e1, #374151);
+                --text-primary: light-dark(#0f172a, #f1f5f9);
+                --text-muted-custom: light-dark(#475569, #94a3b8);
+                --focus-ring: light-dark(#0b57d0, #f9cf00);
+                --scrollbar-track: light-dark(#e2e8f0, #1e293b);
+                --scrollbar-thumb: light-dark(#64748b, #94a3b8);
+            }
+        }
+
+        @supports not (scrollbar-color: auto) {
+            body::-webkit-scrollbar {
+                width: 12px;
+                height: 12px;
+            }
+            body::-webkit-scrollbar-thumb {
+                background: var(--scrollbar-thumb);
+            }
+            body::-webkit-scrollbar-track {
+                background: var(--scrollbar-track);
+            }
+        }
+
         body {
-            min-height: 100vh;
+            min-block-size: 100dvh;
             display: flex;
             flex-direction: column;
+            background-color: var(--surface-bg);
+            color: var(--text-primary);
+            accent-color: var(--accent-color);
+        }
+
+        :where(a:any-link, button, input, select, textarea, [tabindex]):focus-visible {
+            outline: 3px solid var(--focus-ring);
+            outline-offset: 2px;
+        }
+
+        .visually-hidden:where(:not(:focus-within, :active)) {
+            position: absolute !important;
+            clip-path: inset(50%) !important;
+            overflow: hidden !important;
+            width: 1px !important;
+            height: 1px !important;
+            margin: -1px !important;
+            padding: 0 !important;
+            border: 0 !important;
+            white-space: nowrap !important;
+        }
+
+        .skip-link:focus-visible {
+            position: fixed;
+            inset-block-start: 0.75rem;
+            inset-inline-start: 0.75rem;
+            z-index: 2000;
+            padding: 0.6rem 1rem;
+            border-radius: 6px;
+            background-color: var(--cta-bg);
+            color: var(--cta-text);
+            font-weight: 600;
+            text-decoration: none;
         }
 
         .main-container {
             flex: 1;
-            padding-top: 2rem;
+            padding-block: 1.5rem 2.5rem;
         }
 
         .form-container {
-            max-width: auto;
             margin: auto;
-            padding-bottom: 2rem;
-        }
-
-        [data-bs-theme="dark"] {
-            --bs-body-bg: #212529;
-            --bs-body-color: #dee2e6;
+            padding-block-end: 2rem;
         }
 
         .header {
-            padding: 1rem 0;
-            margin-bottom: 2rem;
-            border-bottom: 1px solid var(--bs-border-color);
+            padding-block: 0.9rem;
+            border-block-end: 1px solid var(--border-subtle);
+            background-color: var(--surface-card);
         }
 
         .header-content {
             display: flex;
-            align-items: center;
+            flex-wrap: wrap;
+            align-items: safe center;
             justify-content: space-between;
+            gap: 1rem;
         }
 
         .logo-container {
             display: flex;
             align-items: center;
-            gap: 1rem;
+            gap: 0.85rem;
+            text-decoration: none;
+            color: inherit;
         }
 
         .logo {
-            height: 40px;
-            width: auto;
+            block-size: 40px;
+            inline-size: auto;
+        }
+
+        .nav-actions {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .nav-actions .btn {
+            min-block-size: 38px;
+            min-inline-size: 38px;
         }
 
         .footer {
-            margin-top: auto;
-            padding: 1rem 0;
+            margin-block-start: auto;
+            padding-block: 1rem;
             text-align: center;
-            border-top: 1px solid var(--bs-border-color);
+            border-block-start: 1px solid var(--border-subtle);
             font-size: 0.9rem;
+            color: var(--text-muted-custom);
         }
 
         .footer a {
             color: inherit;
-            text-decoration: none;
+            text-decoration: underline;
         }
 
-        .footer a:hover {
-            text-decoration: underline;
+        /* Copy button + live status feedback (copy-button pattern) */
+        .copyable {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.5rem;
+            position: relative;
+            min-inline-size: 0;
+        }
+
+        .copy {
+            position: relative;
+            display: inline-flex;
+            align-items: center;
+            flex: none;
+        }
+
+        .copy-button {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            min-inline-size: 24px;
+            min-block-size: 36px;
+            padding: 0.35rem 0.7rem;
+            border-radius: 6px;
+            border: 1px solid #475569;
+            background-color: #1e293b;
+            color: #f8fafc;
+            font-size: 0.85rem;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .copy-button:hover {
+            background-color: #334155;
+        }
+
+        .copy-button .icon-check {
+            display: none;
+        }
+
+        .copy-button[data-copied] {
+            border-color: #22c55e;
+            background-color: #14532d;
+            color: #dcfce7;
+        }
+
+        .copy-button[data-copied] .icon-copy {
+            display: none;
+        }
+
+        .copy-button[data-copied] .icon-check {
+            display: inline-block;
+        }
+
+        .copy-button[data-failed] {
+            border-color: #ef4444;
+            background-color: #7f1d1d;
+            color: #fee2e2;
+        }
+
+        .copy .tip {
+            position: absolute;
+            inset-block-end: calc(100% + 6px);
+            inset-inline-end: 0;
+            padding: 0.2rem 0.5rem;
+            border-radius: 4px;
+            background-color: #0f172a;
+            color: #f8fafc;
+            border: 1px solid #475569;
+            font-size: 0.75rem;
+            white-space: nowrap;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.15s ease;
+        }
+
+        .copy:has([data-copied], [data-failed]) .tip {
+            opacity: 1;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after {
+                transition-duration: 0.01ms !important;
+                animation-duration: 0.01ms !important;
+            }
+        }
+
+        /* Fallback when accent-color is not supported */
+        @supports not (accent-color: var(--brand-accent-light)) {
+            input[type="checkbox"],
+            input[type="radio"] {
+                box-shadow: 0 0 0 1px var(--border-subtle);
+            }
         }
 
         .tag-cloud {
             display: flex;
             flex-wrap: wrap;
+            flex-wrap: balance;
             gap: 8px;
             padding: 15px;
             border-radius: 8px;
-            background: rgba(0, 0, 0, 0.05);
-            margin-bottom: 20px;
+            background: var(--surface-subtle);
+            margin-block-end: 20px;
         }
 
         .tag {
-            display: inline-block;
-            padding: 5px 10px;
+            display: inline-flex;
+            align-items: center;
+            min-block-size: 28px;
+            padding: 4px 10px;
             border-radius: 15px;
             background-color: #dc3545;
             color: white;
             cursor: pointer;
-            font-size: 14px;
-            transition: all 0.3s ease;
+            font-size: 13px;
+            border: none;
             user-select: none;
         }
 
         .tag.selected {
-            background-color: #28a745;
+            background-color: #198754;
         }
 
         .tag.excluded {
             background-color: #343a40;
             text-decoration: line-through;
-        }
-
-        .tag:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
         }
 
         .hidden-select {
@@ -122,6 +362,7 @@
 
         .selected-site {
             background-color: #214e7b;
+            color: #fff;
             padding: 2px 8px;
             border-radius: 12px;
             font-size: 14px;
@@ -132,14 +373,14 @@
 
         .remove-site {
             cursor: pointer;
-            color: #dc3545;
+            color: #fca5a5;
             font-weight: bold;
+            background: none;
+            border: none;
+            padding: 0 2px;
+            line-height: 1;
         }
 
-        /* The header/body/footer live inside a <form>, which breaks the flex
-           chain .modal-dialog-scrollable relies on (.modal-content's direct
-           children stop being .modal-header/.modal-body/.modal-footer) — redo
-           that flex layout one level down, on the form itself. */
         #settingsModal .modal-content>form {
             display: flex;
             flex-direction: column;
@@ -152,14 +393,12 @@
             overflow-y: auto;
         }
 
-        /* "Fork me on GitHub" corner ribbon: the wrapper clips the band's ends
-           flush with the viewport corner, so no page-level overflow. */
         .gh-ribbon {
             position: fixed;
             top: 0;
             right: 0;
-            width: 160px;
-            height: 160px;
+            width: 140px;
+            height: 140px;
             overflow: hidden;
             z-index: 1030;
             pointer-events: none;
@@ -167,22 +406,21 @@
 
         .gh-ribbon a {
             position: absolute;
-            top: 48px;
-            left: -24px;
-            width: 240px;
-            padding: 6px 0;
+            top: 38px;
+            left: -30px;
+            width: 220px;
+            padding: 5px 0;
             transform: rotate(45deg);
-            background-color: rgb(249, 207, 0);
-            color: #000;
-            font: bold 13px/1.2 sans-serif;
+            background-color: var(--cta-bg);
+            color: var(--cta-text);
+            font: bold 12px/1.2 sans-serif;
             text-align: center;
             text-decoration: none;
             box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
             pointer-events: auto;
         }
 
-        /* Would collide with the header buttons once the container goes full-width */
-        @media (max-width: 991px) {
+        @media (max-width: 1200px) {
             .gh-ribbon {
                 display: none;
             }
@@ -191,52 +429,54 @@
 </head>
 
 <body>
+    <a href="#main-content" class="skip-link visually-hidden">Saltar al contenido principal</a>
+
     <div class="gh-ribbon">
         <a href="https://github.com/soxoj/maigret" target="_blank" rel="noopener">Fork me on GitHub</a>
     </div>
 
-    <div class="header">
+    <header class="header">
         <div class="container">
             <div class="header-content">
-                <div class="logo-container">
-                    <img src="{{ url_for('static', filename='maigret.png') }}" alt="Maigret Logo" class="logo">
-                    <h1 class="h4 mb-0">Maigret Web Interface</h1>
-                </div>
-                <div class="d-flex align-items-center gap-2">
+                <a href="{{ url_for('index') }}" class="logo-container">
+                    <img src="{{ url_for('static', filename='maigret.png') }}" alt="Maigret" class="logo">
+                    <span class="h4 mb-0">Maigret Web Interface</span>
+                </a>
+                <nav aria-label="Navegación principal" class="nav-actions">
                     <a href="{{ url_for('index') }}" class="btn btn-outline-secondary">New Search</a>
                     <a href="{{ url_for('history') }}" class="btn btn-outline-secondary">History</a>
-                    <button class="btn btn-outline-secondary" id="theme-toggle">
-                        Toggle Dark/Light Mode
+                    <button type="button" class="btn btn-outline-secondary" id="theme-toggle" aria-label="Cambiar tema claro/oscuro">
+                        <span id="theme-toggle-label">Tema</span>
                     </button>
-                    <button class="btn btn-outline-secondary" id="settings-toggle" title="Settings"
-                        data-bs-toggle="modal" data-bs-target="#settingsModal">
+                    <button type="button" class="btn btn-outline-secondary" id="settings-toggle"
+                        data-bs-toggle="modal" data-bs-target="#settingsModal" aria-label="Ajustes por defecto">
                         &#9881;
                     </button>
-                </div>
+                </nav>
             </div>
         </div>
-    </div>
+    </header>
 
-    <div class="main-container">
+    <main id="main-content" class="main-container" tabindex="-1">
         <div class="container">
             {% with messages = get_flashed_messages() %}
             {% if messages %}
             {% for message in messages %}
-            <div class="alert alert-info">{{ message }}</div>
+            <div class="alert alert-info" role="status">{{ message }}</div>
             {% endfor %}
             {% endif %}
             {% endwith %}
             {% block content %}{% endblock %}
         </div>
-    </div>
+    </main>
 
     <div class="modal fade" id="settingsModal" tabindex="-1" aria-labelledby="settingsModalLabel" aria-hidden="true">
         <div class="modal-dialog modal-lg modal-dialog-scrollable">
             <div class="modal-content">
                 <form method="POST" action="{{ url_for('settings_update') }}">
                     <div class="modal-header">
-                        <h5 class="modal-title" id="settingsModalLabel">Settings</h5>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                        <h5 class="modal-title" id="settingsModalLabel">Settings (Valores por defecto)</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
                     </div>
                     <div class="modal-body">
                         <div class="mb-3">
@@ -248,7 +488,7 @@
                         <div class="mb-3">
                             <label for="settings-top_sites" class="form-label">Number of Sites (Fast check)</label>
                             <input type="number" class="form-control" id="settings-top_sites" name="top_sites" min="1"
-                                max="10000" value="{{ web_settings.top_sites }}">
+                                max="15000" value="{{ web_settings.top_sites }}">
                         </div>
 
                         <h6>Advanced Options</h6>
@@ -277,34 +517,35 @@
                         <div class="mb-3">
                             <label for="settings-proxy" class="form-label">Proxy URL</label>
                             <input type="text" class="form-control" id="settings-proxy" name="proxy"
-                                placeholder="e.g., 127.0.0.1:1080" value="{{ web_settings.proxy }}">
+                                placeholder="e.g., socks5://127.0.0.1:1080" value="{{ web_settings.proxy }}">
                         </div>
                         <div class="mb-3">
                             <label for="settings-tor_proxy" class="form-label">TOR Proxy URL</label>
                             <input type="text" class="form-control" id="settings-tor_proxy" name="tor_proxy"
-                                placeholder="Default: 127.0.0.1:9050" value="{{ web_settings.tor_proxy }}">
+                                placeholder="Default: socks5://127.0.0.1:9050" value="{{ web_settings.tor_proxy }}">
                         </div>
                         <div class="mb-3">
                             <label for="settings-i2p_proxy" class="form-label">I2P Proxy URL</label>
                             <input type="text" class="form-control" id="settings-i2p_proxy" name="i2p_proxy"
-                                placeholder="Default: 127.0.0.1:4444" value="{{ web_settings.i2p_proxy }}">
+                                placeholder="Default: http://127.0.0.1:4444" value="{{ web_settings.i2p_proxy }}">
                         </div>
 
                         <h6>Filters</h6>
                         <div class="mb-3 site-input-container">
                             <label for="settingsSiteInput" class="form-label">Specify Sites (Optional)</label>
                             <input type="text" class="form-control" id="settingsSiteInput"
-                                placeholder="Type to search for sites..." list="settingsSiteOptions">
+                                placeholder="Type to search for sites..." list="settingsSiteOptions"
+                                autocorrect="off" autocapitalize="none" spellcheck="false">
                             <input type="hidden" id="settings-site" name="site" value="{{ web_settings.site_list | join(',') }}">
                             <datalist id="settingsSiteOptions"></datalist>
                             <div class="selected-sites" id="settingsSelectedSites"></div>
                         </div>
 
                         <div class="mb-3">
-                            <label class="form-label">Tags (click to cycle: include &rarr; exclude &rarr; neutral)</label>
+                            <label class="form-label" for="settingsTags">Tags (click to cycle: include &rarr; exclude &rarr; neutral)</label>
                             <div class="mb-2">
                                 <small class="text-muted">
-                                    <span style="display:inline-block;width:12px;height:12px;background:#28a745;border-radius:50%;"></span> Included (whitelist)
+                                    <span style="display:inline-block;width:12px;height:12px;background:#198754;border-radius:50%;"></span> Included (whitelist)
                                     &nbsp;&nbsp;
                                     <span style="display:inline-block;width:12px;height:12px;background:#343a40;border-radius:50%;"></span> Excluded (blacklist)
                                     &nbsp;&nbsp;
@@ -313,65 +554,82 @@
                             </div>
                             <div class="tag-cloud" id="settingsTagCloud"></div>
                             <select multiple class="hidden-select" id="settingsTags" name="tags">
-                                <option value="gaming">Gaming</option>
-                                <option value="coding">Coding</option>
-                                <option value="photo">Photo</option>
-                                <option value="music">Music</option>
-                                <option value="blog">Blog</option>
-                                <option value="finance">Finance</option>
-                                <option value="freelance">Freelance</option>
-                                <option value="dating">Dating</option>
-                                <option value="tech">Tech</option>
-                                <option value="forum">Forum</option>
-                                <option value="porn">Porn</option>
-                                <option value="erotic">Erotic</option>
-                                <option value="webcam">Webcam</option>
-                                <option value="video">Video</option>
-                                <option value="movies">Movies</option>
-                                <option value="hacking">Hacking</option>
-                                <option value="art">Art</option>
-                                <option value="discussion">Discussion</option>
-                                <option value="sharing">Sharing</option>
-                                <option value="writing">Writing</option>
-                                <option value="wiki">Wiki</option>
-                                <option value="business">Business</option>
-                                <option value="shopping">Shopping</option>
-                                <option value="sport">Sport</option>
-                                <option value="books">Books</option>
-                                <option value="news">News</option>
-                                <option value="documents">Documents</option>
-                                <option value="travel">Travel</option>
-                                <option value="maps">Maps</option>
-                                <option value="hobby">Hobby</option>
-                                <option value="apps">Apps</option>
-                                <option value="classified">Classified</option>
-                                <option value="career">Career</option>
-                                <option value="geosocial">Geosocial</option>
-                                <option value="streaming">Streaming</option>
-                                <option value="education">Education</option>
-                                <option value="networking">Networking</option>
-                                <option value="torrent">Torrent</option>
-                                <option value="science">Science</option>
-                                <option value="medicine">Medicine</option>
-                                <option value="reading">Reading</option>
-                                <option value="stock">Stock</option>
-                                <option value="messaging">Messaging</option>
-                                <option value="trading">Trading</option>
-                                <option value="links">Links</option>
-                                <option value="fashion">Fashion</option>
-                                <option value="tasks">Tasks</option>
-                                <option value="military">Military</option>
-                                <option value="auto">Auto</option>
-                                <option value="gambling">Gambling</option>
-                                <option value="cybercriminal">Cybercriminal</option>
-                                <option value="review">Review</option>
-                                <option value="bookmarks">Bookmarks</option>
-                                <option value="design">Design</option>
-                                <option value="tor">Tor</option>
-                                <option value="i2p">I2P</option>
-                                <option value="q&a">Q&A</option>
-                                <option value="crypto">Crypto</option>
+                                <option value="3d">3D</option>
                                 <option value="ai">AI</option>
+                                <option value="anime">Anime</option>
+                                <option value="apps">Apps</option>
+                                <option value="archive">Archive</option>
+                                <option value="art">Art</option>
+                                <option value="auto">Auto</option>
+                                <option value="blog">Blog</option>
+                                <option value="bookmarks">Bookmarks</option>
+                                <option value="books">Books</option>
+                                <option value="business">Business</option>
+                                <option value="career">Career</option>
+                                <option value="classified">Classified</option>
+                                <option value="coding">Coding</option>
+                                <option value="cooking">Cooking</option>
+                                <option value="crypto">Crypto</option>
+                                <option value="cybercriminal">Cybercriminal</option>
+                                <option value="dating">Dating</option>
+                                <option value="design">Design</option>
+                                <option value="discussion">Discussion</option>
+                                <option value="documents">Documents</option>
+                                <option value="education">Education</option>
+                                <option value="erotic">Erotic</option>
+                                <option value="esoteric">Esoteric</option>
+                                <option value="fashion">Fashion</option>
+                                <option value="finance">Finance</option>
+                                <option value="fintech">Fintech</option>
+                                <option value="firearms">Firearms</option>
+                                <option value="forum">Forum</option>
+                                <option value="freelance">Freelance</option>
+                                <option value="gambling">Gambling</option>
+                                <option value="gaming">Gaming</option>
+                                <option value="geosocial">Geosocial</option>
+                                <option value="hacking">Hacking</option>
+                                <option value="hobby">Hobby</option>
+                                <option value="i2p">I2P</option>
+                                <option value="lemmy">Lemmy</option>
+                                <option value="links">Links</option>
+                                <option value="llm">LLM</option>
+                                <option value="maps">Maps</option>
+                                <option value="mastodon">Mastodon</option>
+                                <option value="medicine">Medicine</option>
+                                <option value="messaging">Messaging</option>
+                                <option value="military">Military</option>
+                                <option value="movies">Movies</option>
+                                <option value="music">Music</option>
+                                <option value="networking">Networking</option>
+                                <option value="news">News</option>
+                                <option value="nft">NFT</option>
+                                <option value="parenting">Parenting</option>
+                                <option value="photo">Photo</option>
+                                <option value="porn">Porn</option>
+                                <option value="professional">Professional</option>
+                                <option value="psychology">Psychology</option>
+                                <option value="q&a">Q&A</option>
+                                <option value="reading">Reading</option>
+                                <option value="religion">Religion</option>
+                                <option value="research">Research</option>
+                                <option value="review">Review</option>
+                                <option value="science">Science</option>
+                                <option value="sharing">Sharing</option>
+                                <option value="shopping">Shopping</option>
+                                <option value="social">Social</option>
+                                <option value="sport">Sport</option>
+                                <option value="stock">Stock</option>
+                                <option value="streaming">Streaming</option>
+                                <option value="tasks">Tasks</option>
+                                <option value="tech">Tech</option>
+                                <option value="tor">Tor</option>
+                                <option value="torrent">Torrent</option>
+                                <option value="trading">Trading</option>
+                                <option value="travel">Travel</option>
+                                <option value="video">Video</option>
+                                <option value="webcam">Webcam</option>
+                                <option value="wiki">Wiki</option>
+                                <option value="writing">Writing</option>
                                 <!-- Country tags -->
                                 <option value="ae" data-group="country">AE - United Arab Emirates</option>
                                 <option value="ao" data-group="country">AO - Angola</option>
@@ -459,7 +717,7 @@
                     </div>
                     <div class="modal-footer">
                         <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
-                        <button type="submit" class="btn" style="background-color: rgb(249, 207, 0); color: black;">Save Settings</button>
+                        <button type="submit" class="btn" style="background-color: var(--cta-bg); color: var(--cta-text); font-weight: 600;">Save Settings</button>
                     </div>
                 </form>
             </div>
@@ -469,33 +727,166 @@
     <footer class="footer">
         <div class="container">
             <p class="mb-0">
-                Powered by <a href="https://github.com/soxoj/maigret" target="_blank">Maigret</a> |
-                Licensed under <a href="https://github.com/soxoj/maigret/blob/main/LICENSE" target="_blank">MIT
-                    License</a>
+                Powered by <a href="https://github.com/soxoj/maigret" target="_blank" rel="noopener">Maigret</a> |
+                Licensed under <a href="https://github.com/soxoj/maigret/blob/main/LICENSE" target="_blank" rel="noopener">MIT License</a>
             </p>
         </div>
     </footer>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        document.getElementById('theme-toggle').addEventListener('click', function () {
-            const html = document.documentElement;
-            if (html.getAttribute('data-bs-theme') === 'dark') {
-                html.setAttribute('data-bs-theme', 'light');
-            } else {
-                html.setAttribute('data-bs-theme', 'dark');
+        (function () {
+            const darkQuery = window.matchMedia('(prefers-color-scheme: dark)');
+            const metaSchemeEl = document.querySelector('meta[name="color-scheme"]');
+            const themeBtn = document.getElementById('theme-toggle');
+            const themeLabel = document.getElementById('theme-toggle-label');
+
+            function getStoredScheme() {
+                try {
+                    const val = localStorage.getItem('color-scheme');
+                    return (val === 'light' || val === 'dark') ? val : null;
+                } catch (e) {
+                    return null;
+                }
             }
-        });
+
+            function applyScheme(stored) {
+                const systemTheme = darkQuery.matches ? 'dark' : 'light';
+                const resolved = stored || systemTheme;
+                if (metaSchemeEl) {
+                    metaSchemeEl.content = stored || 'light dark';
+                }
+                document.documentElement.setAttribute('data-bs-theme', resolved);
+                if (themeLabel) {
+                    themeLabel.textContent = resolved === 'dark' ? 'Modo claro' : 'Modo oscuro';
+                }
+            }
+
+            applyScheme(getStoredScheme());
+
+            if (themeBtn) {
+                themeBtn.addEventListener('click', function () {
+                    const systemScheme = darkQuery.matches ? 'dark' : 'light';
+                    const stored = getStoredScheme();
+                    const rendered = stored || systemScheme;
+                    const target = rendered === 'dark' ? 'light' : 'dark';
+                    try {
+                        if (target === systemScheme) {
+                            localStorage.removeItem('color-scheme');
+                        } else {
+                            localStorage.setItem('color-scheme', target);
+                        }
+                    } catch (e) {
+                        // Ignore storage errors; still apply theme
+                    }
+                    applyScheme(target === systemScheme ? null : target);
+                });
+            }
+
+            darkQuery.addEventListener('change', function () {
+                applyScheme(getStoredScheme());
+            });
+
+            window.addEventListener('storage', function (event) {
+                if (event.key === 'color-scheme') {
+                    applyScheme(getStoredScheme());
+                }
+            });
+
+            // Reusable Copy Button (Invoker Commands + progressive fallback)
+            const copyTimers = new WeakMap();
+            let lastCopyMessage = '';
+
+            function reportCopy(button, ok) {
+                const tip = button.nextElementSibling;
+                clearTimeout(copyTimers.get(button));
+                button.removeAttribute('data-copied');
+                button.removeAttribute('data-failed');
+                let message = ok ? 'Copiado' : 'Error al copiar';
+                if (message === lastCopyMessage) {
+                    message += '\u00A0';
+                }
+                lastCopyMessage = message;
+                if (tip) {
+                    tip.textContent = '';
+                }
+                void button.offsetWidth;
+                button.setAttribute(ok ? 'data-copied' : 'data-failed', '');
+                requestAnimationFrame(() => {
+                    if (tip) tip.textContent = message;
+                });
+                copyTimers.set(button, setTimeout(() => {
+                    button.removeAttribute('data-copied');
+                    button.removeAttribute('data-failed');
+                    if (tip) tip.textContent = '';
+                }, 2000));
+            }
+
+            function legacyCopy(text) {
+                const field = Object.assign(document.createElement('textarea'), { value: text });
+                field.setAttribute('readonly', '');
+                field.style.cssText = 'position:fixed;inset-block-start:0;opacity:0';
+                document.body.append(field);
+                field.select();
+                try {
+                    return document.execCommand('copy');
+                } finally {
+                    field.remove();
+                }
+            }
+
+            async function performCopy(button, target) {
+                if (!target) return;
+                const text = target.matches('input, textarea')
+                    ? target.value
+                    : target.innerText.trim();
+                if (!text) return;
+                try {
+                    if (navigator.clipboard && navigator.clipboard.writeText) {
+                        await navigator.clipboard.writeText(text);
+                    } else if (!legacyCopy(text)) {
+                        throw new Error('Clipboard unavailable');
+                    }
+                    reportCopy(button, true);
+                } catch (e) {
+                    try {
+                        if (legacyCopy(text)) {
+                            reportCopy(button, true);
+                            return;
+                        }
+                    } catch (err) {
+                        // Fall through to failure report
+                    }
+                    reportCopy(button, false);
+                }
+            }
+
+            if ('CommandEvent' in window) {
+                document.addEventListener('command', (event) => {
+                    if (event.command && event.command.startsWith('--copy')) {
+                        performCopy(event.source, event.target);
+                    }
+                }, true);
+            } else {
+                document.addEventListener('click', (event) => {
+                    const button = event.target.closest('button[command^="--copy"]');
+                    if (!button) return;
+                    const target = document.getElementById(button.getAttribute('commandfor'));
+                    if (target) performCopy(button, target);
+                });
+            }
+        })();
 
         document.addEventListener('DOMContentLoaded', function () {
             const initialSelected = {{ web_settings.tags | tojson }};
             const initialExcluded = {{ web_settings.excluded_tags | tojson }};
             const initialSites = {{ web_settings.site_list | tojson }};
 
-            // Tag cloud: include/exclude (whitelist/blacklist) cycling
             const tagCloud = document.getElementById('settingsTagCloud');
             const hiddenSelect = document.getElementById('settingsTags');
             const excludedSelect = document.getElementById('settingsExcludedTags');
+            if (!tagCloud || !hiddenSelect || !excludedSelect) return;
+
             const allTags = Array.from(hiddenSelect.options).map(opt => ({
                 value: opt.value,
                 label: opt.text,
@@ -503,7 +894,7 @@
             }));
 
             function updateTagSelects() {
-                Array.from(hiddenSelect.options).forEach(opt => opt.selected = false);
+                Array.from(hiddenSelect.options).forEach(opt => { opt.selected = false; });
                 excludedSelect.innerHTML = '';
                 document.querySelectorAll('#settingsTagCloud .tag').forEach(tagEl => {
                     const val = tagEl.dataset.value;
@@ -523,21 +914,21 @@
             allTags.forEach(tag => {
                 if (tag.group !== lastGroup && tag.group === 'country') {
                     const separator = document.createElement('div');
-                    separator.style.cssText = 'width:100%;margin:8px 0 4px;padding:4px 0;border-top:1px solid rgba(0,0,0,0.15);font-size:13px;color:#666;';
+                    separator.style.cssText = 'width:100%;margin:8px 0 4px;padding:4px 0;border-top:1px solid rgba(128,128,128,0.25);font-size:13px;';
                     separator.textContent = 'Countries';
                     tagCloud.appendChild(separator);
                 }
                 lastGroup = tag.group;
 
-                const tagElement = document.createElement('span');
+                const tagElement = document.createElement('button');
+                tagElement.type = 'button';
                 tagElement.className = 'tag';
                 tagElement.textContent = tag.label;
                 tagElement.dataset.value = tag.value;
                 if (initialSelected.includes(tag.value)) tagElement.classList.add('selected');
                 if (initialExcluded.includes(tag.value)) tagElement.classList.add('excluded');
 
-                tagElement.addEventListener('click', function (e) {
-                    e.preventDefault();
+                tagElement.addEventListener('click', function () {
                     if (this.classList.contains('selected')) {
                         this.classList.remove('selected');
                         this.classList.add('excluded');
@@ -553,26 +944,37 @@
             });
             updateTagSelects();
 
-            // Site picker: chips + lazily-loaded datalist (avoids a DB read on every page)
             const siteInput = document.getElementById('settingsSiteInput');
             const siteHiddenInput = document.getElementById('settings-site');
             const selectedSitesContainer = document.getElementById('settingsSelectedSites');
             const siteDatalist = document.getElementById('settingsSiteOptions');
-            let selectedSites = new Set(initialSites);
+            const selectedSites = new Set(initialSites);
             let sitesLoaded = false;
 
             function updateSiteHiddenInput() {
                 siteHiddenInput.value = Array.from(selectedSites).join(',');
             }
 
+            function renderSiteChip(site) {
+                const siteElement = document.createElement('span');
+                siteElement.className = 'selected-site';
+                const labelSpan = document.createElement('span');
+                labelSpan.textContent = site;
+                const removeBtn = document.createElement('button');
+                removeBtn.type = 'button';
+                removeBtn.className = 'remove-site';
+                removeBtn.dataset.site = site;
+                removeBtn.setAttribute('aria-label', 'Quitar ' + site);
+                removeBtn.textContent = '×';
+                siteElement.append(labelSpan, removeBtn);
+                selectedSitesContainer.appendChild(siteElement);
+            }
+
             function addSite(site) {
                 if (site && !selectedSites.has(site)) {
                     selectedSites.add(site);
                     updateSiteHiddenInput();
-                    const siteElement = document.createElement('span');
-                    siteElement.className = 'selected-site';
-                    siteElement.innerHTML = `${site}<span class="remove-site" data-site="${site}">&times;</span>`;
-                    selectedSitesContainer.appendChild(siteElement);
+                    renderSiteChip(site);
                 }
             }
 
@@ -580,50 +982,54 @@
                 selectedSites.delete(site);
                 updateSiteHiddenInput();
                 selectedSitesContainer.querySelectorAll('.selected-site').forEach(el => {
-                    if (el.querySelector('.remove-site').dataset.site === site) el.remove();
+                    const btn = el.querySelector('.remove-site');
+                    if (btn && btn.dataset.site === site) el.remove();
                 });
             }
 
-            initialSites.forEach(site => {
-                const siteElement = document.createElement('span');
-                siteElement.className = 'selected-site';
-                siteElement.innerHTML = `${site}<span class="remove-site" data-site="${site}">&times;</span>`;
-                selectedSitesContainer.appendChild(siteElement);
-            });
+            initialSites.forEach(renderSiteChip);
 
-            document.getElementById('settingsModal').addEventListener('show.bs.modal', function () {
-                if (sitesLoaded) return;
-                sitesLoaded = true;
-                fetch("{{ url_for('api_sites') }}")
-                    .then(r => r.json())
-                    .then(data => {
-                        (data.sites || []).forEach(site => {
-                            const option = document.createElement('option');
-                            option.value = site;
-                            siteDatalist.appendChild(option);
+            const settingsModal = document.getElementById('settingsModal');
+            if (settingsModal) {
+                settingsModal.addEventListener('show.bs.modal', function () {
+                    if (sitesLoaded) return;
+                    sitesLoaded = true;
+                    fetch("{{ url_for('api_sites') }}")
+                        .then(r => r.json())
+                        .then(data => {
+                            (data.sites || []).forEach(site => {
+                                const option = document.createElement('option');
+                                option.value = site;
+                                siteDatalist.appendChild(option);
+                            });
                         });
-                    });
-            });
+                });
+            }
 
-            siteInput.addEventListener('change', function () {
-                const value = this.value.trim();
-                if (value) {
-                    addSite(value);
-                    this.value = '';
-                }
-            });
+            if (siteInput) {
+                siteInput.addEventListener('change', function () {
+                    const value = this.value.trim();
+                    if (value) {
+                        addSite(value);
+                        this.value = '';
+                    }
+                });
 
-            selectedSitesContainer.addEventListener('click', function (e) {
-                if (e.target.classList.contains('remove-site')) {
-                    removeSite(e.target.dataset.site);
-                }
-            });
+                siteInput.addEventListener('paste', function (e) {
+                    e.preventDefault();
+                    const paste = (e.clipboardData || window.clipboardData).getData('text');
+                    paste.split(',').map(s => s.trim()).filter(Boolean).forEach(addSite);
+                });
+            }
 
-            siteInput.addEventListener('paste', function (e) {
-                e.preventDefault();
-                const paste = (e.clipboardData || window.clipboardData).getData('text');
-                paste.split(',').map(s => s.trim()).filter(Boolean).forEach(addSite);
-            });
+            if (selectedSitesContainer) {
+                selectedSitesContainer.addEventListener('click', function (e) {
+                    const btn = e.target.closest('.remove-site');
+                    if (btn) {
+                        removeSite(btn.dataset.site);
+                    }
+                });
+            }
         });
     </script>
 </body>

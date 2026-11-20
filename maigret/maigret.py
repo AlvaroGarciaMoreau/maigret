@@ -847,6 +847,7 @@ async def main():
         from maigret.web.app import app
 
         app.config["MAIGRET_DB_FILE"] = db_file
+        app.config["DEFAULT_FOLDEROUTPUT"] = args.folderoutput
 
         # args.web is either the specified port or web_interface_port from settings
         port = args.web if args.web else settings.web_interface_port

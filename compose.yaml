@@ -1,0 +1,32 @@
+services:
+  maigret-web:
+    build:
+      context: .
+      target: web
+    image: maigret-web:latest
+    container_name: maigret-web
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${MAIGRET_PORT:-5050}:5000"
+    environment:
+      - PORT=5000
+      - FLASK_HOST=0.0.0.0
+      - PYTHONUNBUFFERED=1
+      - MAIGRET_REPORTS_FOLDER=/app/reports/web_sessions
+      - MAIGRET_SETTINGS_FILE=/app/data/web_settings.json
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+    volumes:
+      - ./reports:/app/reports
+      - maigret_data:/app/data
+      - maigret_cache:/root/.maigret
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import os, urllib.request; urllib.request.urlopen('http://127.0.0.1:' + os.environ.get('PORT', '5000') + '/', timeout=5)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+
+volumes:
+  maigret_data:
+  maigret_cache:
+

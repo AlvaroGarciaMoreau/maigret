@@ -20,7 +20,10 @@ ENV FLASK_HOST=0.0.0.0
 FROM base AS web
 RUN pip install --no-cache-dir '.[pdf]'
 ENV PORT=5000
+ENV PYTHONUNBUFFERED=1
 EXPOSE 5000
+HEALTHCHECK --interval=30s --timeout=10s --start-period=15s --retries=3 \
+    CMD python3 -c "import os, urllib.request; urllib.request.urlopen('http://127.0.0.1:' + os.environ.get('PORT', '5000') + '/', timeout=5)"
 ENTRYPOINT ["sh", "-c", "exec maigret --web \"$PORT\""]
 
 # Default variant (last stage = `docker build .` target): CLI, backwards-compatible

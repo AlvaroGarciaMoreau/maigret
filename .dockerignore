@@ -2,7 +2,10 @@
 .vscode/
 static/
 tests/
+reports/
+web_settings.json
 *.txt
 !/requirements.txt
 venv/
+.venv/
 

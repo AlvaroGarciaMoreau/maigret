@@ -108,7 +108,7 @@ async def _check_response(resp):
         raise RuntimeError(f"OpenAI API error (HTTP {resp.status}): {body[:500]}")
 
 
-async def _stream_response(resp, spinner, first_token):
+async def _stream_response(resp, spinner, first_token, silent: bool = False):
     """Stream tokens from resp, display them, and return (first_token, full_analysis)."""
     full_response = []
     async for line in resp.content:
@@ -127,15 +127,18 @@ async def _stream_response(resp, spinner, first_token):
         if not content:
             continue
         if first_token:
-            spinner.stop()
-            print()
+            if spinner is not None:
+                spinner.stop()
+            if not silent:
+                print()
             first_token = False
         # The model's reply is arbitrary text: an OSINT run on an international
         # username routinely comes back with Cyrillic or CJK. Writing it straight
         # raised UnicodeEncodeError out of this coroutine and ended the analysis
         # mid-sentence, with the tokens already printed left on screen.
-        _write_encodable(sys.stdout, content)
-        sys.stdout.flush()
+        if not silent:
+            _write_encodable(sys.stdout, content)
+            sys.stdout.flush()
         full_response.append(content)
     return first_token, "".join(full_response)
 
@@ -145,10 +148,11 @@ async def get_ai_analysis(
     markdown_report: str,
     model: str = "gpt-4o",
     api_base_url: str = "https://api.openai.com/v1",
+    silent: bool = False,
 ) -> str:
     """Send the markdown report to an OpenAI-compatible API and return the analysis.
 
-    Uses streaming to display tokens as they arrive.
+    Uses streaming to display tokens as they arrive unless ``silent`` is True.
     Raises on HTTP errors with descriptive messages.
     """
     system_prompt = load_ai_prompt()
@@ -167,22 +171,27 @@ async def get_ai_analysis(
         ],
     }
 
-    spinner = _Spinner("Analysing the data with AI...")
-    spinner.start()
+    spinner = None if silent else _Spinner("Analysing the data with AI...")
+    if spinner is not None:
+        spinner.start()
     first_token = True
 
     try:
         async with aiohttp.ClientSession() as session:
             async with session.post(url, json=payload, headers=headers) as resp:
                 await _check_response(resp)
-                first_token, analysis = await _stream_response(resp, spinner, first_token)
+                first_token, analysis = await _stream_response(
+                    resp, spinner, first_token, silent=silent
+                )
     except Exception:
-        spinner.stop()
+        if spinner is not None:
+            spinner.stop()
         raise
 
-    if first_token:
+    if first_token and spinner is not None:
         # No tokens received — stop spinner anyway
         spinner.stop()
 
-    print()
+    if not silent:
+        print()
     return analysis

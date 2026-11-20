@@ -17,7 +17,8 @@ import pytest
 import maigret
 import maigret.report
 import maigret.settings
-from maigret.result import MaigretCheckResult, MaigretCheckStatus
+from maigret.result import KeywordMatchStatus, MaigretCheckResult, MaigretCheckStatus
+from maigret.sites import MaigretSite
 from maigret.web import app as web_app_module
 
 CUR_PATH = os.path.dirname(os.path.realpath(__file__))
@@ -819,3 +820,439 @@ def test_settings_modal_present_on_every_page(client, web_app):
     resp = client.get('/history')
     body = resp.get_data(as_text=True)
     assert 'id="settingsModal"' in body
+
+
+def test_index_renders_command_builder_and_examples(client):
+    resp = client.get('/')
+    assert resp.status_code == 200
+    body = resp.get_data(as_text=True)
+
+    for control in (
+        'name="usernames"',
+        'name="folderoutput"',
+        'name="fmt_html"',
+        'name="fmt_pdf"',
+        'name="fmt_xmind"',
+        'name="fmt_csv"',
+        'name="fmt_txt"',
+        'name="fmt_graph"',
+        'name="fmt_neo4j"',
+        'name="json_format"',
+        'name="top_sites"',
+        'name="tags"',
+        'name="keywords"',
+        'name="id_type"',
+        'name="ai"',
+        'id="cli-command-output"',
+    ):
+        assert control in body, f'Missing control {control} on index page'
+
+    for snippet in (
+        'maigret user --html',
+        'maigret user --pdf',
+        'maigret user --xmind',
+        'maigret user --json ndjson',
+        'maigret user --json simple',
+        'maigret user --csv',
+        'maigret user --txt',
+        'maigret user --graph',
+        'maigret user --neo4j',
+        'maigret user --tags photo,dating',
+        'maigret user --tags us',
+        'maigret user --keywords python rust',
+        'maigret user1 user2 user3 -a',
+        'maigret user --ai',
+        'maigret user --top-sites 250 --tags coding,social --json simple',
+    ):
+        assert snippet in body, f'Missing example snippet {snippet}'
+
+
+def test_parse_search_options_new_cli_parameters(web_app):
+    options = web_app.parse_search_options(
+        {
+            'search_form_submitted': '1',
+            'formats_configured': '1',
+            'top_sites': '250',
+            'tags': 'coding,social',
+            'excluded_tags': 'porn',
+            'keywords': 'python rust',
+            'id_mode': 'numeric',
+            'id_type': 'vk_id',
+            'folderoutput': './socmint_out',
+            'fmt_xmind': 'on',
+            'fmt_txt': 'on',
+            'fmt_neo4j': 'on',
+            'fmt_md': 'on',
+            'json_format': 'simple',
+            'ai': 'on',
+            'ai_model': 'gpt-5.4',
+        }
+    )
+
+    assert options['top_sites'] == 250
+    assert options['tags'] == ['coding', 'social']
+    assert options['excluded_tags'] == ['porn']
+    assert options['keywords'] == ['python', 'rust']
+    assert options['id_type'] == 'vk_id'
+    assert options['folderoutput'] == './socmint_out'
+    assert options['formats'] == {
+        'html': False,
+        'pdf': False,
+        'xmind': True,
+        'csv': False,
+        'txt': True,
+        'graph': False,
+        'neo4j': True,
+        'md': True,
+        'json': 'simple',
+    }
+    assert options['ai'] is True
+
+
+def test_build_cli_command_matches_examples(web_app):
+    assert (
+        web_app.build_cli_command(
+            ['user'],
+            {'formats': {'html': True}, 'top_sites': 500},
+        )
+        == 'maigret user --html'
+    )
+    assert (
+        web_app.build_cli_command(
+            ['user'],
+            {'formats': {'json': 'simple'}, 'top_sites': 500},
+        )
+        == 'maigret user --json simple'
+    )
+    assert (
+        web_app.build_cli_command(
+            ['user'],
+            {
+                'top_sites': 250,
+                'tags': ['coding', 'social'],
+                'formats': {'json': 'simple'},
+            },
+        )
+        == 'maigret user --json simple --top-sites 250 --tags coding,social'
+    )
+    assert (
+        web_app.build_cli_command(
+            ['user'],
+            {'keywords': ['python', 'rust'], 'formats': {}, 'top_sites': 500},
+        )
+        == 'maigret user --keywords python rust'
+    )
+    assert (
+        web_app.build_cli_command(
+            ['user1', 'user2', 'user3'],
+            {'all_sites': True, 'formats': {}},
+        )
+        == 'maigret user1 user2 user3 -a'
+    )
+    assert (
+        web_app.build_cli_command(
+            ['10001'],
+            {'id_type': 'qq_id', 'formats': {}, 'top_sites': 500},
+        )
+        == 'maigret 10001 --id-type qq_id'
+    )
+    assert (
+        web_app.build_cli_command(
+            ['user'],
+            {
+                'folderoutput': './custom_out',
+                'formats': {'xmind': True, 'neo4j': True},
+                'ai': True,
+                'top_sites': 500,
+            },
+        )
+        == 'maigret user -fo ./custom_out --xmind --neo4j --ai'
+    )
+
+    auto_cmd = web_app.build_cli_command(
+        ['12345'], {'id_type': 'auto_ids', 'formats': {}, 'top_sites': 500}
+    )
+    assert 'maigret --input-file -' in auto_cmd
+    assert 'vk_id:12345' in auto_cmd
+
+
+def test_build_reports_respects_selected_formats_and_custom_folderoutput(
+    client, web_app, tmp_path
+):
+    site_obj = MaigretSite('GitHub', {'urlMain': 'https://github.com'})
+    claimed = MaigretCheckResult(
+        username='soxoj',
+        site_name='GitHub',
+        site_url_user='https://github.com/soxoj',
+        status=MaigretCheckStatus.CLAIMED,
+        tags=['coding', 'social'],
+        keywords=['python'],
+        keyword_match_status=KeywordMatchStatus.KEYWORD_FOUND,
+    )
+    general_results = [
+        (
+            'soxoj',
+            'username',
+            {
+                'GitHub': {
+                    'status': claimed,
+                    'url_user': claimed.site_url_user,
+                    'url_main': 'https://github.com',
+                    'site': site_obj,
+                }
+            },
+        )
+    ]
+
+    export_dir = tmp_path / 'custom_export'
+    options = {
+        'folderoutput': str(export_dir),
+        'formats': {
+            'html': False,
+            'pdf': False,
+            'xmind': True,
+            'csv': False,
+            'txt': True,
+            'graph': False,
+            'neo4j': True,
+            'md': True,
+            'json': 'simple',
+        },
+        'keywords': ['python'],
+        'top_sites': 250,
+        'tags': ['coding', 'social'],
+    }
+
+    report = web_app.build_reports(general_results, ['soxoj'], 'custom1', options=options)
+
+    assert report['graph_file'] is None
+    assert report['neo4j_file'] == 'search_custom1/combined_neo4j.cypher'
+    assert report['exported_folder'] == str(export_dir)
+    ind = report['individual_reports'][0]
+    assert ind['html_file'] is None
+    assert ind['pdf_file'] is None
+    assert ind['csv_file'] is None
+    assert ind['xmind_file'].endswith('.xmind')
+    assert ind['txt_file'].endswith('.txt')
+    assert ind['md_file'].endswith('.md')
+    assert ind['json_file'].endswith('_simple.json')
+    assert ind['claimed_profiles'][0]['keyword_match'] is True
+
+    # Verify custom folderoutput received exported files and simple JSON is valid object
+    simple_json_path = export_dir / os.path.basename(ind['json_file'])
+    assert simple_json_path.is_file()
+    parsed_json = json.loads(simple_json_path.read_text(encoding='utf-8'))
+    assert 'GitHub' in parsed_json
+    assert (export_dir / 'combined_neo4j.cypher').is_file()
+    assert (export_dir / os.path.basename(ind['xmind_file'])).is_file()
+    assert 'https://github.com/soxoj' in (
+        export_dir / os.path.basename(ind['txt_file'])
+    ).read_text(encoding='utf-8')
+
+    # Verify results page renders the selected report links and [++] badge
+    web_app.job_results['custom1'] = report
+    page = client.get('/results/search_custom1').get_data(as_text=True)
+    assert 'TXT Report' in page
+    assert 'XMind Report' in page
+    assert 'Neo4j Cypher Script' in page
+    assert 'Markdown Report' in page
+    assert 'JSON Report (simple)' in page
+    assert '[++]' in page
+    assert str(export_dir) in page
+
+
+def test_maigret_search_forwards_keywords_and_id_type(web_app, monkeypatch):
+    captured = {}
+
+    async def fake_search(*args, **kwargs):
+        captured.update(kwargs)
+        return {}
+
+    monkeypatch.setattr(maigret, 'search', fake_search)
+
+    asyncio.run(
+        web_app.maigret_search(
+            '10001',
+            {
+                'top_sites': 100,
+                'timeout': 10,
+                'keywords': ['python', 'rust'],
+                'id_type': 'vk_id',
+            },
+        )
+    )
+
+    assert captured['keywords'] == ['python', 'rust']
+    assert captured['id_type'] == 'vk_id'
+
+
+def test_live_scan_emits_keyword_match_and_id_type(client, web_app, monkeypatch):
+    async def fake_search(*args, **kwargs):
+        notify = kwargs['query_notify']
+        notify.start('10001', 'vk_id')
+        result = MaigretCheckResult(
+            username='10001',
+            site_name='VK (by id)',
+            site_url_user='https://vk.com/id10001',
+            status=MaigretCheckStatus.CLAIMED,
+            keywords=['python'],
+            keyword_match_status=KeywordMatchStatus.KEYWORD_FOUND,
+        )
+        notify.update(result)
+        return {'VK (by id)': {'status': result, 'url_user': result.site_url_user}}
+
+    monkeypatch.setattr(maigret, 'search', fake_search)
+    monkeypatch.setattr(maigret.report, 'save_graph_report', lambda *a, **kw: None)
+    monkeypatch.setattr(maigret.report, 'save_csv_report', lambda *a, **kw: None)
+    monkeypatch.setattr(maigret.report, 'save_json_report', lambda *a, **kw: None)
+    monkeypatch.setattr(maigret.report, 'save_pdf_report', lambda *a, **kw: None)
+    monkeypatch.setattr(maigret.report, 'save_html_report', lambda *a, **kw: None)
+    monkeypatch.setattr(maigret.report, 'generate_report_context', lambda *a, **kw: {})
+
+    start = client.post(
+        '/api/scan',
+        data={
+            'usernames': '10001',
+            'id_mode': 'numeric',
+            'id_type': 'vk_id',
+            'keywords': 'python',
+        },
+    )
+    assert start.status_code == 200
+    job_id = start.get_json()['job_id']
+
+    body = client.get(f'/api/scan/{job_id}/stream').get_data(as_text=True)
+    events = [
+        json.loads(line[6:]) for line in body.splitlines() if line.startswith('data: ')
+    ]
+    found = next(e for e in events if e['type'] == 'found')
+    assert found['keyword_match'] is True
+    assert found['id_type'] == 'vk_id'
+
+
+def test_expand_search_targets_auto_ids_and_permute(web_app):
+    auto_targets = web_app.expand_search_targets(['12345'], {'id_type': 'auto_ids'})
+    assert ('12345', 'vk_id') in auto_targets
+    assert ('12345', 'qq_id') in auto_targets
+    assert all(id_type != 'username' for _, id_type in auto_targets)
+
+    prefixed = web_app.expand_search_targets(
+        ['vk_id:999', 'alice'], {'id_type': 'username'}
+    )
+    assert prefixed == [('999', 'vk_id'), ('alice', 'username')]
+
+    permuted = web_app.expand_search_targets(
+        ['john', 'doe'], {'id_type': 'username', 'permute': True}
+    )
+    perm_names = [v for v, _ in permuted]
+    assert 'john_doe' in perm_names
+    assert 'doe.john' in perm_names
+
+
+def test_api_tags_returns_categories_and_countries(client):
+    resp = client.get('/api/tags')
+    assert resp.status_code == 200
+    data = resp.get_json()
+    assert 'category_tags' in data
+    assert 'country_tags' in data
+    assert isinstance(data['category_tags'], list)
+
+
+def test_ai_analysis_missing_key_and_success_flow(client, web_app, monkeypatch):
+    async def fake_search_multi(usernames, options):
+        res = MaigretCheckResult(
+            username='soxoj',
+            site_name='GitHub',
+            site_url_user='https://github.com/soxoj',
+            status=MaigretCheckStatus.CLAIMED,
+        )
+        return [('soxoj', 'username', {'GitHub': {'status': res, 'url_user': res.site_url_user}})]
+
+    monkeypatch.setattr(web_app, 'search_multiple_usernames', fake_search_multi)
+    monkeypatch.setattr(maigret.ai, 'resolve_api_key', lambda *a, **kw: None)
+    monkeypatch.delenv('OPENAI_API_KEY', raising=False)
+
+    web_app.background_jobs['ts_no_key'] = {'completed': False, 'thread': None}
+    web_app.process_search_task(
+        ['soxoj'], {'ai': True, 'formats': {'txt': True}}, 'ts_no_key'
+    )
+    res_no_key = web_app.job_results['ts_no_key']
+    assert res_no_key['status'] == 'completed'
+    assert 'OPENAI_API_KEY' in res_no_key['ai_error']
+
+    # Now with API key and mocked get_ai_analysis
+    async def fake_ai(**kwargs):
+        assert kwargs['silent'] is True
+        return 'Resumen SOCMINT generado por IA.'
+
+    monkeypatch.setattr(maigret.ai, 'resolve_api_key', lambda *a, **kw: 'sk-test')
+    monkeypatch.setattr(maigret.ai, 'get_ai_analysis', fake_ai)
+
+    web_app.background_jobs['ts_with_key'] = {'completed': False, 'thread': None}
+    web_app.process_search_task(
+        ['soxoj'], {'ai': True, 'formats': {'txt': True}}, 'ts_with_key'
+    )
+    res_ok = web_app.job_results['ts_with_key']
+    assert res_ok['ai_analysis'] == 'Resumen SOCMINT generado por IA.'
+    assert res_ok['ai_file'].endswith('ai_summary.md')
+
+    results_html = client.get(f"/results/{res_ok['session_folder']}").get_data(
+        as_text=True
+    )
+    assert 'Resumen SOCMINT generado por IA.' in results_html
+    assert 'AI Summary (.md)' in results_html
+
+
+def test_live_scan_stream_reconnect_after_completion_returns_done(
+    client, web_app, monkeypatch
+):
+    """After a live stream completes and is popped from live_jobs, a late or
+    reconnecting /stream request must yield a terminal 'done' event instead of 404,
+    and live.html must close EventSource on completion."""
+
+    async def fake_search(*args, **kwargs):
+        notify = kwargs['query_notify']
+        res = MaigretCheckResult(
+            username='soxoj',
+            site_name='GitHub',
+            site_url_user='https://github.com/soxoj',
+            status=MaigretCheckStatus.CLAIMED,
+        )
+        notify.update(res)
+        return {'GitHub': {'status': res, 'url_user': res.site_url_user}}
+
+    monkeypatch.setattr(maigret, 'search', fake_search)
+    monkeypatch.setattr(maigret.report, 'save_graph_report', lambda *a, **kw: None)
+    monkeypatch.setattr(maigret.report, 'save_csv_report', lambda *a, **kw: None)
+    monkeypatch.setattr(maigret.report, 'save_json_report', lambda *a, **kw: None)
+    monkeypatch.setattr(maigret.report, 'save_pdf_report', lambda *a, **kw: None)
+    monkeypatch.setattr(maigret.report, 'save_html_report', lambda *a, **kw: None)
+    monkeypatch.setattr(maigret.report, 'generate_report_context', lambda *a, **kw: {})
+
+    start = client.post('/live', data={'usernames': 'soxoj'})
+    job_id = start.location.rsplit('/', 1)[1]
+
+    page_html = client.get(start.location).get_data(as_text=True)
+    assert 'evtSource.close()' in page_html
+
+    # First stream consumes queue and pops job_id from live_jobs
+    first_stream = client.get(f'/api/scan/{job_id}/stream')
+    assert first_stream.status_code == 200
+    assert 'done' in first_stream.get_data(as_text=True)
+    assert job_id not in web_app.live_jobs
+
+    # Second (reconnecting) stream still returns 200 with terminal 'done' payload
+    second_stream = client.get(f'/api/scan/{job_id}/stream')
+    assert second_stream.status_code == 200
+    events = [
+        json.loads(line[6:])
+        for line in second_stream.get_data(as_text=True).splitlines()
+        if line.startswith('data: ')
+    ]
+    assert events == [
+        {
+            'type': 'done',
+            'redirect': f'/results/search_{job_id}',
+            'found_count': 1,
+        }
+    ]
